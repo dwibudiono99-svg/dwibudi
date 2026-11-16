@@ -17,6 +17,13 @@ export interface BatikMotif {
   region: Exclude<BatikRegion, "all">;
   regionLabel: string;
   philosophy: string;
+  era: string;
+  historySnippet: string;
+  mapCoords: {
+    x: number;
+    y: number;
+    island: string;
+  };
   patternType:
     | "parang"
     | "kawung"
@@ -148,6 +155,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "jawa_klasik",
     regionLabel: "Jawa Klasik",
     philosophy: "Bilah diagonal ombak samudra simbol keteguhan jiwa",
+    era: "Abad ke-17 · Mataram",
+    historySnippet:
+      "Diciptakan Sultan Agung Hanyokrokusumo saat bermeditasi di pesisir selatan Jawa, terinspirasi deburan ombak yang tak pernah menyerah mengikis karang.",
+    mapCoords: { x: 88, y: 80, island: "Pulau Jawa" },
     patternType: "parang",
     colors: {
       base: "#241710",
@@ -163,6 +174,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "jawa_klasik",
     regionLabel: "Jawa Klasik",
     philosophy: "Empat kelopak simetris simbol kesucian & kebijaksanaan",
+    era: "Abad ke-13 · Keraton Jawa",
+    historySnippet:
+      "Salah satu motif tertua yang terpahat pada arca candi Hindu-Buddha Jawa kuno, dahulu menjadi busana khusus keluarga Keraton Mataram sebagai simbol pengendalian diri.",
+    mapCoords: { x: 87, y: 80, island: "Pulau Jawa" },
     patternType: "kawung",
     colors: {
       base: "#2B190E",
@@ -178,6 +193,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "pesisir_madura",
     regionLabel: "Pesisir & Madura",
     philosophy: "Awan berarak tujuh gradasi biru simbol keteduhan hati",
+    era: "Abad ke-16 · Kesultanan Cirebon",
+    historySnippet:
+      "Lahir dari akulturasi budaya Cirebon, Islam, dan Tiongkok lewat pernikahan Sunan Gunung Jati dengan Putri Ong Tien; tujuh gradasinya melambangkan tujuh lapisan langit.",
+    mapCoords: { x: 73, y: 74, island: "Pulau Jawa" },
     patternType: "megamendung",
     colors: {
       base: "#0F294A",
@@ -193,6 +212,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "jawa_klasik",
     regionLabel: "Jawa Klasik",
     philosophy: "Sayap garuda & meru pembawa keluhuran dan kemakmuran",
+    era: "Abad ke-18 · Kasunanan Solo",
+    historySnippet:
+      "Dikembangkan di lingkungan Keraton Surakarta sebagai kain sakral upacara pernikahan adat Jawa, mendoakan mempelai menuju hidup berkecukupan lahir dan batin.",
+    mapCoords: { x: 92, y: 78, island: "Pulau Jawa" },
     patternType: "sidomukti",
     colors: {
       base: "#331C10",
@@ -208,6 +231,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "jawa_klasik",
     regionLabel: "Jawa Klasik",
     philosophy: "Mozaik pulau bunga lambang keindahan keragaman dunia",
+    era: "Abad ke-18 · Vorstenlanden",
+    historySnippet:
+      "Berasal dari kata 'kar' (peta) dan 'jagad' (dunia) atau 'sekar' (bunga); motif mozaiknya memadukan beragam isen klasik sebagai lambang harmoni lintas budaya.",
+    mapCoords: { x: 90, y: 79, island: "Pulau Jawa" },
     patternType: "sekarjagad",
     colors: {
       base: "#1F1713",
@@ -223,6 +250,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "jawa_klasik",
     regionLabel: "Jawa Klasik",
     philosophy: "Taburan bunga tanjung bak bintang malam penuntun kasih",
+    era: "Abad ke-18 · Ratu Kencana",
+    historySnippet:
+      "Diciptakan Kanjeng Ratu Kencana (permaisuri Sunan Pakubuwana III) saat memandangi bintang malam sambil membatik, sebagai lambang cinta yang bersemi kembali.",
+    mapCoords: { x: 93, y: 78, island: "Pulau Jawa" },
     patternType: "truntum",
     colors: {
       base: "#171412",
@@ -238,6 +269,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "pesisir_madura",
     regionLabel: "Pesisir & Madura",
     philosophy: "Ragam flora pesisir cerah hasil akulturasi maritim",
+    era: "Abad ke-19 · Pesisir Utara",
+    historySnippet:
+      "Tumbuh pesat di kota pelabuhan Pekalongan yang menjadi titik temu pedagang Nusantara, Tiongkok, Arab, dan Eropa—melahirkan warna cerah serta buket bunga alami.",
+    mapCoords: { x: 82, y: 74, island: "Pulau Jawa" },
     patternType: "tujuhrupa",
     colors: {
       base: "#F5ECD8",
@@ -253,6 +288,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "pesisir_madura",
     regionLabel: "Pesisir & Madura",
     philosophy: "Pewarnaan rendam gentong pekat merah marun dan emas",
+    era: "Abad ke-18 · Pesisir Madura",
+    historySnippet:
+      "Dinamai dari proses perendaman kain berbulan-bulan dalam gentong tanah liat berisi pewarna alami mengkudu dan daun tarum agar warna tajam dan tahan lama.",
+    mapCoords: { x: 114, y: 73, island: "Pulau Madura" },
     patternType: "gentongan",
     colors: {
       base: "#4C0D14",
@@ -268,6 +307,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "pesisir_madura",
     regionLabel: "Pesisir & Madura",
     philosophy: "Akulturasi merah mengkudu Lasem, biru Pekalongan, soga Solo",
+    era: "Akhir Abad ke-19 · Lasem",
+    historySnippet:
+      "Disebut Tiga Negeri karena satu lembar kain dahulu dicelup di tiga kota berbeda: merah darah ayam di Lasem, biru nila di Pekalongan, dan coklat soga di Solo.",
+    mapCoords: { x: 98, y: 75, island: "Pulau Jawa" },
     patternType: "tiganegeri",
     colors: {
       base: "#6B1225",
@@ -283,6 +326,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "nusantara_timur",
     regionLabel: "Nusantara",
     philosophy: "Ukiran patra Bali berbalut prada emas yang berwibawa",
+    era: "Abad ke-20 · Tradisi Bali",
+    historySnippet:
+      "Menggabungkan seni tulis lilin dengan ukiran patra Bali, motif penari, dan aksen prada keemasan yang sering dikenakan dalam upacara adat maupun perayaan Bali.",
+    mapCoords: { x: 126, y: 83, island: "Pulau Bali" },
     patternType: "bali_prapen",
     colors: {
       base: "#1C1512",
@@ -298,6 +345,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "nusantara_timur",
     regionLabel: "Nusantara",
     philosophy: "Pohon kehidupan dan ukiran talawang Kalimantan",
+    era: "Tradisi Benang Bintik",
+    historySnippet:
+      "Dikenal sebagai Batik Benang Bintik khas Dayak Ngaju; Batang Garing melambangkan keselarasan hubungan manusia, alam semesta, dan Sang Pencipta.",
+    mapCoords: { x: 111, y: 43, island: "Pulau Kalimantan" },
     patternType: "dayak",
     colors: {
       base: "#123524",
@@ -313,6 +364,10 @@ export const BATIK_MOTIFS: BatikMotif[] = [
     region: "nusantara_timur",
     regionLabel: "Nusantara",
     philosophy: "Siluet burung surga Cendrawasih dan ukiran etnik Papua",
+    era: "Kontemporer Papua",
+    historySnippet:
+      "Memadukan keanggunan burung surga Cendrawasih dengan motif ukiran kayu Asmat dan alat musik Tifa bernuansa warna bumi terakota dan emas.",
+    mapCoords: { x: 254, y: 47, island: "Pulau Papua" },
     patternType: "cendrawasih",
     colors: {
       base: "#3E1B11",

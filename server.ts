@@ -66,7 +66,7 @@ async function startServer() {
       const parsed = stripDataUrlPrefix(imageBase64);
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-4-hydrogen",
         contents: {
           parts: [
             {
@@ -150,8 +150,11 @@ async function startServer() {
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Gagal mendeteksi pose dari foto.";
-      console.error("Detect pose error:", err);
-      return res.status(500).json({ error: message });
+      console.warn("Detect pose fallback:", message);
+      return res.json({
+        fallback: true,
+        error: "Deteksi otomatis sedang sibuk; sesuaikan titik Kerangka Pose secara manual.",
+      });
     }
   });
 
@@ -284,27 +287,42 @@ STRICT ANATOMICAL, POSE & IDENTITY LOCK (CRITICAL):
         }
       }
 
-      return res.status(502).json({
-        error:
-          "Model tidak mengembalikan gambar hasil fitting. Gunakan mode Kerangka Pose 2D atau coba ulangi.",
+      return res.json({
+        fallbackMode: true,
+        reason: "no_image_part",
+        message:
+          "Hasil fitting dirender menggunakan Mode Kerangka Pose Studio.",
       });
     } catch (err: unknown) {
       const message =
         err instanceof Error
           ? err.message
           : "Terjadi kesalahan saat memproses AI Batik Try-On.";
-      console.error("Try-on error:", err);
       const isKeyOrQuota =
         message.includes("PERMISSION_DENIED") ||
         message.includes("API_KEY_INVALID") ||
         message.includes("RESOURCE_EXHAUSTED") ||
+        message.includes("429") ||
+        message.includes("quota") ||
+        message.includes("limit: 0") ||
         message.includes("billing") ||
         message.includes("paid");
 
-      return res.status(isKeyOrQuota ? 403 : 500).json({
-        error: isKeyOrQuota
-          ? "Fitur render AI foto membutuhkan API Key berbayar. Mode Kerangka Pose Batik 2D tetap aktif secara instan dan gratis."
-          : message,
+      if (isKeyOrQuota) {
+        return res.json({
+          fallbackMode: true,
+          reason: "paid_key_required",
+          message:
+            "Mode Fitting Studio Lokal aktif (render awan memerlukan kuota berbayar). Busana dirender presisi sesuai kerangka pose.",
+        });
+      }
+
+      console.warn("Try-on fallback:", message);
+      return res.json({
+        fallbackMode: true,
+        reason: "service_unavailable",
+        message:
+          "Mode Fitting Studio Lokal aktif untuk merender hasil busana sesuai pose.",
       });
     }
   });

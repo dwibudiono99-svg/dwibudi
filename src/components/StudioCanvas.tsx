@@ -50,6 +50,7 @@ export interface GarmentTransform {
 export interface StudioCanvasHandle {
   exportPng: () => void;
   getCleanSubjectDataUrl: () => string;
+  renderStudioCompositeDataUrl: (photoStyleLabel?: string) => string;
 }
 
 interface StudioCanvasProps {
@@ -593,8 +594,115 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
           drawCleanSubject(offCtx);
           return offscreen.toDataURL("image/png");
         },
+        renderStudioCompositeDataUrl: (photoStyleLabel?: string) => {
+          const offscreen = document.createElement("canvas");
+          offscreen.width = CANVAS_W;
+          offscreen.height = CANVAS_H;
+          const offCtx = offscreen.getContext("2d")!;
+
+          drawCleanSubject(offCtx);
+
+          const order: GarmentSlot[] = equipped.fullset
+            ? ["fullset", "accessory"]
+            : ["bottom", "top", "outer", "accessory"];
+
+          if (subjectMode === "avatar") {
+            const bodySkewRad = (poseJoints.turn * 0.32 * Math.PI) / 180;
+            offCtx.save();
+            offCtx.translate(
+              CANVAS_W / 2 + transform.x,
+              CANVAS_H / 2 + transform.y
+            );
+            offCtx.rotate(
+              ((transform.rot + poseJoints.turn * 0.18) * Math.PI) / 180
+            );
+            offCtx.transform(1, 0, Math.tan(bodySkewRad) * 0.25, 1, 0, 0);
+            offCtx.scale(
+              0.74 * transform.scale * transform.width,
+              0.74 * transform.scale
+            );
+            for (const slot of order) {
+              const item = equipped[slot];
+              if (item) {
+                drawBatikGarmentOnCanvas(
+                  offCtx,
+                  item,
+                  selectedMotif,
+                  selectedColorMode,
+                  transform.patternScale
+                );
+              }
+            }
+            offCtx.restore();
+          } else {
+            offCtx.save();
+            offCtx.globalAlpha = 0.95;
+            for (const slot of order) {
+              const item = equipped[slot];
+              if (item) {
+                drawSkeletalBatikGarment(
+                  offCtx,
+                  CANVAS_W,
+                  CANVAS_H,
+                  activeSkeleton,
+                  item,
+                  selectedMotif,
+                  selectedColorMode,
+                  {
+                    offsetX: transform.x,
+                    offsetY: transform.y,
+                    widthScale: transform.width,
+                    lengthScale: transform.scale,
+                    patternScale: transform.patternScale,
+                    rotDeg: transform.rot,
+                  }
+                );
+              }
+            }
+            offCtx.restore();
+          }
+
+          // Subtle studio lighting & vignette pass based on selected photoStyle
+          const styleStr = (photoStyleLabel || photoStyle).toLowerCase();
+          offCtx.save();
+          if (styleStr.includes("pendopo")) {
+            offCtx.fillStyle = "rgba(217, 155, 38, 0.08)";
+            offCtx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          } else if (styleStr.includes("kantor")) {
+            offCtx.fillStyle = "rgba(180, 205, 235, 0.05)";
+            offCtx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          } else if (styleStr.includes("daylight")) {
+            offCtx.fillStyle = "rgba(255, 248, 230, 0.06)";
+            offCtx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          }
+          const vig = offCtx.createRadialGradient(
+            CANVAS_W / 2,
+            CANVAS_H * 0.42,
+            CANVAS_W * 0.3,
+            CANVAS_W / 2,
+            CANVAS_H / 2,
+            CANVAS_H * 0.72
+          );
+          vig.addColorStop(0, "rgba(0,0,0,0)");
+          vig.addColorStop(1, "rgba(0,0,0,0.22)");
+          offCtx.fillStyle = vig;
+          offCtx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          offCtx.restore();
+
+          return offscreen.toDataURL("image/png");
+        },
       }),
-      [selectedMotif.id, drawCleanSubject]
+      [
+        selectedMotif,
+        selectedColorMode,
+        drawCleanSubject,
+        equipped,
+        subjectMode,
+        poseJoints,
+        transform,
+        activeSkeleton,
+        photoStyle,
+      ]
     );
 
     const getCanvasPos = (clientX: number, clientY: number) => {
@@ -811,7 +919,7 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
                 MODEL ASLI
               </span>
               <span className="pointer-events-none absolute top-3 right-3 rounded bg-[#D99B26] px-2 py-0.5 text-[10px] font-semibold text-[#11100F]">
-                HASIL BATIK AI
+                HASIL FITTING
               </span>
             </div>
           )}
@@ -927,12 +1035,12 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
           </div>
         </div>
 
-        {/* Optional Photorealistic AI Fitting Controls */}
+        {/* Studio Lookbook Render & Comparison Controls */}
         <div className="flex w-full flex-col gap-2.5 rounded-lg border border-white/10 bg-[#12110F] p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#F0C265]">
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span>Render Fotorealistis (Opsional)</span>
+              <span>Render &amp; Pencahayaan Studio</span>
             </span>
             <div className="flex items-center gap-2">
               <label className="inline-flex items-center gap-1.5 text-[11px] text-[#A79F93] cursor-pointer">
@@ -982,8 +1090,8 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
             <Sparkles className="h-4 w-4" />
             <span>
               {isGeneratingAi
-                ? "Memproses Fitting AI..."
-                : "Render Fotorealistis AI (Sesuai Pose)"}
+                ? "Memproses Fitting Studio..."
+                : "Render Hasil Fitting (Sesuai Pose)"}
             </span>
           </button>
         </div>

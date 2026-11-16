@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { X, Sparkles } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { X, Sparkles, MapPin } from "lucide-react";
 import {
   BATIK_COLOR_MODES,
   BATIK_MOTIFS,
@@ -16,6 +16,7 @@ import {
   renderBatikSwatchDataUrl,
   resolveMotifColors,
 } from "../utils/batikPatternEngine";
+import { MotifHistoryPopover } from "./MotifHistoryPopover";
 
 export type EquippedMap = Record<GarmentSlot, GarmentItem | null>;
 
@@ -70,6 +71,11 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
     selectedMotif,
     selectedColorMode
   );
+
+  const [hoveredInfo, setHoveredInfo] = useState<{
+    motif: BatikMotif;
+    rect: DOMRect;
+  } | null>(null);
 
   return (
     <aside className="flex flex-col gap-4 rounded-xl border border-white/10 bg-[#1A1816] p-4">
@@ -211,7 +217,7 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
           <button
             type="button"
             onClick={() => onToggleAutoFitOnMotifClick(!autoFitOnMotifClick)}
-            title="Jika aktif, setiap klik motif batik langsung memicu AI fitting foto"
+            title="Jika aktif, setiap klik motif batik langsung merender hasil fitting studio"
             className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors whitespace-nowrap cursor-pointer ${
               autoFitOnMotifClick
                 ? "border-[#D99B26] bg-[#D99B26]/20 text-[#F0C265]"
@@ -220,7 +226,7 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
           >
             <Sparkles className="h-3 w-3" />
             <span>
-              {autoFitOnMotifClick ? "Klik = Fitting AI" : "Klik = Pratinjau"}
+              {autoFitOnMotifClick ? "Klik = Render Studio" : "Klik = Pratinjau"}
             </span>
           </button>
         </div>
@@ -279,7 +285,10 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
         </div>
 
         {/* Batik Motif Click Grid */}
-        <div className="studio-scroll grid max-h-[300px] grid-cols-2 gap-2 overflow-y-auto pr-1">
+        <div
+          onScroll={() => setHoveredInfo(null)}
+          className="studio-scroll grid max-h-[300px] grid-cols-2 gap-2 overflow-y-auto pr-1"
+        >
           {filteredMotifs.map((motif) => {
             const isSelected = selectedMotif.id === motif.id;
             return (
@@ -287,6 +296,20 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
                 key={motif.id}
                 type="button"
                 onClick={() => onSelectMotif(motif)}
+                onMouseEnter={(e) => {
+                  setHoveredInfo({
+                    motif,
+                    rect: e.currentTarget.getBoundingClientRect(),
+                  });
+                }}
+                onMouseLeave={() => setHoveredInfo(null)}
+                onFocus={(e) => {
+                  setHoveredInfo({
+                    motif,
+                    rect: e.currentTarget.getBoundingClientRect(),
+                  });
+                }}
+                onBlur={() => setHoveredInfo(null)}
                 className={`group flex flex-col overflow-hidden rounded-lg border text-left transition-all cursor-pointer ${
                   isSelected
                     ? "border-[#D99B26] bg-[#D99B26]/10"
@@ -300,9 +323,10 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
                     referrerPolicy="no-referrer"
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                   />
-                  <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/70 to-transparent" />
-                  <span className="absolute bottom-1.5 left-2 text-[10px] font-medium text-white/90">
-                    {motif.origin}
+                  <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/75 to-transparent" />
+                  <span className="absolute bottom-1.5 left-2 inline-flex items-center gap-1 text-[10px] font-medium text-white/95">
+                    <MapPin className="h-2.5 w-2.5 text-[#D99B26]" />
+                    <span>{motif.origin}</span>
                   </span>
                 </div>
                 <div className="p-2">
@@ -318,6 +342,14 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
           })}
         </div>
       </div>
+
+      {hoveredInfo && (
+        <MotifHistoryPopover
+          motif={hoveredInfo.motif}
+          swatchUrl={motifSwatches[hoveredInfo.motif.id]}
+          anchorRect={hoveredInfo.rect}
+        />
+      )}
     </aside>
   );
 };
