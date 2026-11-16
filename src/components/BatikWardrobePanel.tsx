@@ -18,7 +18,13 @@ import {
 } from "../utils/batikPatternEngine";
 import { MotifHistoryPopover } from "./MotifHistoryPopover";
 
-export type EquippedMap = Record<GarmentSlot, GarmentItem | null>;
+export interface EquippedSlotEntry {
+  item: GarmentItem;
+  motif: BatikMotif;
+  colorMode: BatikColorMode;
+}
+
+export type EquippedMap = Record<GarmentSlot, EquippedSlotEntry | null>;
 
 interface BatikWardrobePanelProps {
   activeSlot: GarmentSlot;
@@ -33,6 +39,8 @@ interface BatikWardrobePanelProps {
   onSelectColorMode: (mode: BatikColorMode) => void;
   regionFilter: BatikRegion;
   onChangeRegionFilter: (region: BatikRegion) => void;
+  applyMotifScope: "active_slot" | "all";
+  onChangeApplyMotifScope: (scope: "active_slot" | "all") => void;
   autoFitOnMotifClick: boolean;
   onToggleAutoFitOnMotifClick: (val: boolean) => void;
 }
@@ -50,6 +58,8 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
   onSelectColorMode,
   regionFilter,
   onChangeRegionFilter,
+  applyMotifScope,
+  onChangeApplyMotifScope,
   autoFitOnMotifClick,
   onToggleAutoFitOnMotifClick,
 }) => {
@@ -67,6 +77,8 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
   }, [selectedColorMode]);
 
   const currentSlotItems = GARMENT_ITEMS[activeSlot] || [];
+  const activeSlotLabel =
+    GARMENT_SLOTS.find((s) => s.id === activeSlot)?.name || "Atasan";
   const equippedMotifPalette = resolveMotifColors(
     selectedMotif,
     selectedColorMode
@@ -79,11 +91,11 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
 
   return (
     <aside className="flex flex-col gap-4 rounded-xl border border-white/10 bg-[#1A1816] p-4">
-      {/* Section 2: Kombinasi Busana Terpasang */}
+      {/* Section 2: Kombinasi Busana Terpasang (Mix & Match) */}
       <div id="potongan-busana" className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold tracking-tight text-[#F4F1EA]">
-            2. Potongan &amp; Busana Terpasang
+            2. Mix &amp; Match Busana Terpasang
           </h2>
           <button
             type="button"
@@ -101,8 +113,12 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
               ? s.id === "fullset" || s.id === "accessory"
               : s.id !== "fullset"
           ).map((slotMeta) => {
-            const item = equipped[slotMeta.id];
+            const entry = equipped[slotMeta.id];
             const isActive = activeSlot === slotMeta.id;
+            const entrySwatch =
+              entry && entry.item.usesBatikPattern
+                ? renderBatikSwatchDataUrl(entry.motif, entry.colorMode)
+                : null;
             return (
               <div
                 key={slotMeta.id}
@@ -122,15 +138,35 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
                     : "border-white/10 bg-[#12110F] hover:border-white/25"
                 }`}
               >
+                {entrySwatch ? (
+                  <img
+                    src={entrySwatch}
+                    alt={entry?.motif.name}
+                    className="h-7 w-7 shrink-0 rounded border border-white/20 object-cover"
+                  />
+                ) : entry ? (
+                  <span
+                    className="h-7 w-7 shrink-0 rounded border border-white/20"
+                    style={{
+                      backgroundColor:
+                        entry.item.solidFallbackColor || "#1B1B1E",
+                    }}
+                  />
+                ) : null}
                 <div className="min-w-0 flex-1">
                   <span className="block text-[10px] text-[#8E867B]">
                     {slotMeta.name}
                   </span>
                   <span className="block truncate text-[11px] font-semibold text-[#F4F1EA]">
-                    {item ? item.name : "Kosong"}
+                    {entry ? entry.item.name : "Kosong"}
                   </span>
+                  {entry && entry.item.usesBatikPattern && (
+                    <span className="block truncate text-[10px] text-[#D99B26]">
+                      {entry.motif.name}
+                    </span>
+                  )}
                 </div>
-                {item && (
+                {entry && (
                   <button
                     type="button"
                     aria-label={`Lepas ${slotMeta.name}`}
@@ -169,7 +205,7 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
         {/* Garment Cut Picker */}
         <div className="studio-scroll flex max-h-36 flex-col gap-1.5 overflow-y-auto pr-1">
           {currentSlotItems.map((item) => {
-            const isSelected = equipped[activeSlot]?.id === item.id;
+            const isSelected = equipped[activeSlot]?.item.id === item.id;
             return (
               <button
                 key={item.id}
@@ -217,7 +253,7 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
           <button
             type="button"
             onClick={() => onToggleAutoFitOnMotifClick(!autoFitOnMotifClick)}
-            title="Jika aktif, setiap klik motif batik langsung merender hasil fitting studio"
+            title="Jika aktif, setiap klik motif batik langsung menjalankan Render AI sesuai pose"
             className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors whitespace-nowrap cursor-pointer ${
               autoFitOnMotifClick
                 ? "border-[#D99B26] bg-[#D99B26]/20 text-[#F0C265]"
@@ -226,9 +262,40 @@ export const BatikWardrobePanel: React.FC<BatikWardrobePanelProps> = ({
           >
             <Sparkles className="h-3 w-3" />
             <span>
-              {autoFitOnMotifClick ? "Klik = Render Studio" : "Klik = Pratinjau"}
+              {autoFitOnMotifClick ? "Klik = Render AI" : "Klik = Pratinjau"}
             </span>
           </button>
+        </div>
+
+        {/* Apply Scope Switch for True Mix & Match */}
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#12110F] px-2.5 py-1.5">
+          <span className="text-[11px] text-[#9A9185] whitespace-nowrap">
+            Terapkan motif ke:
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onChangeApplyMotifScope("active_slot")}
+              className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                applyMotifScope === "active_slot"
+                  ? "bg-[#D99B26] text-[#11100F]"
+                  : "text-[#A79F93] hover:text-white"
+              }`}
+            >
+              {activeSlotLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeApplyMotifScope("all")}
+              className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                applyMotifScope === "all"
+                  ? "bg-[#D99B26] text-[#11100F]"
+                  : "text-[#A79F93] hover:text-white"
+              }`}
+            >
+              Semua Busana
+            </button>
+          </div>
         </div>
 
         {/* Region Filter Segmented Control */}

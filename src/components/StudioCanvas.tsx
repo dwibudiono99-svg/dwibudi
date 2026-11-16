@@ -22,7 +22,6 @@ import type {
   PoseSkeleton,
 } from "../data/batikCatalog";
 import {
-  drawBatikGarmentOnCanvas,
   drawPoseSkeletonOverlay,
   drawSkeletalBatikGarment,
 } from "../utils/batikPatternEngine";
@@ -59,6 +58,7 @@ interface StudioCanvasProps {
   uploadedPhotoDataUrl: string | null;
   photoScale: number;
   photoOffsetY: number;
+  poseViewAnchor: { scale: number; offsetY: number };
   avatarConfig: AvatarConfig;
   poseJoints: PoseJoints;
   faceAdjust: FaceAdjust;
@@ -84,6 +84,7 @@ interface StudioCanvasProps {
   onChangeDirectorNote: (note: string) => void;
   highQualityAi: boolean;
   onToggleHighQualityAi: (val: boolean) => void;
+  aiNeedsPaidKeyNote?: boolean;
 }
 
 function shadeHexSimple(col: string, pct: number): string {
@@ -103,6 +104,7 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
       uploadedPhotoDataUrl,
       photoScale,
       photoOffsetY,
+      poseViewAnchor,
       avatarConfig,
       poseJoints,
       faceAdjust,
@@ -128,6 +130,7 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
       onChangeDirectorNote,
       highQualityAi,
       onToggleHighQualityAi,
+      aiNeedsPaidKeyNote,
     },
     ref
   ) => {
@@ -438,6 +441,112 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
       ]
     );
 
+    const computeAvatarSkeleton = useCallback((): PoseSkeleton => {
+      const cx = CANVAS_W / 2;
+      const fem = avatarConfig.gender === "female";
+      const turnOffset = poseJoints.turn * 0.45;
+      const perspectiveScale = 1 - Math.abs(poseJoints.turn) * 0.005;
+      const sw = (fem ? 55 : 66) * perspectiveScale;
+      const ww = (fem ? 36 : 48) * perspectiveScale;
+
+      const radL = (poseJoints.armL * Math.PI) / 180;
+      const radR = (poseJoints.armR * Math.PI) / 180;
+      // Viewer left = anatomical right; Viewer right = anatomical left
+      const shViewerLeftX = cx - sw + 4 + turnOffset * 0.2;
+      const shViewerRightX = cx + sw - 4 + turnOffset * 0.2;
+      const shY = 192;
+
+      const elbViewerLeftX = shViewerLeftX - Math.sin(radL) * 72;
+      const elbViewerLeftY = shY + Math.cos(radL) * 72;
+      const handViewerLeftX =
+        poseJoints.armL > 42
+          ? cx - ww - 4
+          : elbViewerLeftX - Math.sin(radL * 0.5) * 66;
+      const handViewerLeftY =
+        poseJoints.armL > 42 ? 312 : elbViewerLeftY + Math.cos(radL * 0.5) * 66;
+
+      const elbViewerRightX = shViewerRightX + Math.sin(radR) * 72;
+      const elbViewerRightY = shY + Math.cos(radR) * 72;
+      const handViewerRightX =
+        poseJoints.armR > 42
+          ? cx + ww + 4
+          : elbViewerRightX + Math.sin(radR * 0.5) * 66;
+      const handViewerRightY =
+        poseJoints.armR > 42 ? 312 : elbViewerRightY + Math.cos(radR * 0.5) * 66;
+
+      const spreadRad = (poseJoints.legSpread * Math.PI) / 180;
+      const hipViewerLeftX = cx - 22;
+      const hipViewerRightX = cx + 22;
+      const hipY = 326;
+      const footViewerLeftX =
+        avatarConfig.pose === "sitting_casual"
+          ? cx - 32
+          : hipViewerLeftX - Math.sin(spreadRad) * 145;
+      const footViewerRightX =
+        avatarConfig.pose === "sitting_casual"
+          ? cx + 32
+          : hipViewerRightX + Math.sin(spreadRad) * 145;
+      const footY = avatarConfig.pose === "sitting_casual" ? 540 : 545;
+
+      return {
+        neck: { x: (cx + turnOffset * 0.15) / CANVAS_W, y: 174 / CANVAS_H },
+        leftShoulder: { x: shViewerRightX / CANVAS_W, y: shY / CANVAS_H },
+        rightShoulder: { x: shViewerLeftX / CANVAS_W, y: shY / CANVAS_H },
+        leftElbow: { x: elbViewerRightX / CANVAS_W, y: elbViewerRightY / CANVAS_H },
+        rightElbow: { x: elbViewerLeftX / CANVAS_W, y: elbViewerLeftY / CANVAS_H },
+        leftWrist: { x: handViewerRightX / CANVAS_W, y: handViewerRightY / CANVAS_H },
+        rightWrist: { x: handViewerLeftX / CANVAS_W, y: handViewerLeftY / CANVAS_H },
+        leftHip: { x: hipViewerRightX / CANVAS_W, y: hipY / CANVAS_H },
+        rightHip: { x: hipViewerLeftX / CANVAS_W, y: hipY / CANVAS_H },
+        leftAnkle: { x: footViewerRightX / CANVAS_W, y: footY / CANVAS_H },
+        rightAnkle: { x: footViewerLeftX / CANVAS_W, y: footY / CANVAS_H },
+      };
+    }, [avatarConfig.gender, avatarConfig.pose, poseJoints]);
+
+    const getViewAlignedSkeleton = useCallback((): PoseSkeleton => {
+      if (subjectMode === "avatar") {
+        return computeAvatarSkeleton();
+      }
+      if (subjectMode !== "upload") {
+        return activeSkeleton;
+      }
+      const relScale = photoScale / (poseViewAnchor.scale || 100);
+      const relOffsetY = photoOffsetY - poseViewAnchor.offsetY;
+      if (relScale === 1 && relOffsetY === 0) {
+        return activeSkeleton;
+      }
+      const mapPt = (pt: { x: number; y: number }) => ({
+        x:
+          (CANVAS_W / 2 + (pt.x * CANVAS_W - CANVAS_W / 2) * relScale) /
+          CANVAS_W,
+        y:
+          (CANVAS_H / 2 +
+            (pt.y * CANVAS_H - CANVAS_H / 2) * relScale +
+            relOffsetY) /
+          CANVAS_H,
+      });
+      return {
+        neck: mapPt(activeSkeleton.neck),
+        leftShoulder: mapPt(activeSkeleton.leftShoulder),
+        rightShoulder: mapPt(activeSkeleton.rightShoulder),
+        leftElbow: mapPt(activeSkeleton.leftElbow),
+        rightElbow: mapPt(activeSkeleton.rightElbow),
+        leftWrist: mapPt(activeSkeleton.leftWrist),
+        rightWrist: mapPt(activeSkeleton.rightWrist),
+        leftHip: mapPt(activeSkeleton.leftHip),
+        rightHip: mapPt(activeSkeleton.rightHip),
+        leftAnkle: mapPt(activeSkeleton.leftAnkle),
+        rightAnkle: mapPt(activeSkeleton.rightAnkle),
+      };
+    }, [
+      subjectMode,
+      computeAvatarSkeleton,
+      activeSkeleton,
+      photoScale,
+      photoOffsetY,
+      poseViewAnchor,
+    ]);
+
     const drawCanvas = useCallback(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -484,63 +593,39 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
 
       const canDrawPhotoOverlay =
         subjectMode !== "upload" || Boolean(loadedPhotoImg);
+      const effectiveSkeleton = getViewAlignedSkeleton();
 
       if (showOverlay2D && canDrawPhotoOverlay) {
         const order: GarmentSlot[] = equipped.fullset
           ? ["fullset", "accessory"]
           : ["bottom", "top", "outer", "accessory"];
 
-        if (subjectMode === "avatar") {
-          const bodySkewRad = (poseJoints.turn * 0.32 * Math.PI) / 180;
-          ctx.save();
-          ctx.translate(CANVAS_W / 2 + transform.x, CANVAS_H / 2 + transform.y);
-          ctx.rotate(((transform.rot + poseJoints.turn * 0.18) * Math.PI) / 180);
-          ctx.transform(1, 0, Math.tan(bodySkewRad) * 0.25, 1, 0, 0);
-          ctx.scale(
-            0.74 * transform.scale * transform.width,
-            0.74 * transform.scale
-          );
-          for (const slot of order) {
-            const item = equipped[slot];
-            if (item) {
-              drawBatikGarmentOnCanvas(
-                ctx,
-                item,
-                selectedMotif,
-                selectedColorMode,
-                transform.patternScale
-              );
-            }
+        // Skeletal Pose-Mapped Batik Garment Overlay (for Photo, Studio & Articulated Mannequin)
+        ctx.save();
+        ctx.globalAlpha = subjectMode === "avatar" ? 0.96 : 0.92;
+        for (const slot of order) {
+          const entry = equipped[slot];
+          if (entry) {
+            drawSkeletalBatikGarment(
+              ctx,
+              CANVAS_W,
+              CANVAS_H,
+              effectiveSkeleton,
+              entry.item,
+              entry.motif,
+              entry.colorMode,
+              {
+                offsetX: transform.x,
+                offsetY: transform.y,
+                widthScale: transform.width,
+                lengthScale: transform.scale,
+                patternScale: transform.patternScale,
+                rotDeg: transform.rot,
+              }
+            );
           }
-          ctx.restore();
-        } else {
-          // Skeletal Pose-Mapped Batik Garment Overlay
-          ctx.save();
-          ctx.globalAlpha = 0.92;
-          for (const slot of order) {
-            const item = equipped[slot];
-            if (item) {
-              drawSkeletalBatikGarment(
-                ctx,
-                CANVAS_W,
-                CANVAS_H,
-                activeSkeleton,
-                item,
-                selectedMotif,
-                selectedColorMode,
-                {
-                  offsetX: transform.x,
-                  offsetY: transform.y,
-                  widthScale: transform.width,
-                  lengthScale: transform.scale,
-                  patternScale: transform.patternScale,
-                  rotDeg: transform.rot,
-                }
-              );
-            }
-          }
-          ctx.restore();
         }
+        ctx.restore();
       }
 
       // Draw interactive skeletal landmarks if enabled
@@ -549,7 +634,7 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
           ctx,
           CANVAS_W,
           CANVAS_H,
-          activeSkeleton,
+          effectiveSkeleton,
           activeJointKey
         );
       }
@@ -561,12 +646,9 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
       showOverlay2D,
       subjectMode,
       loadedPhotoImg,
-      poseJoints,
+      getViewAlignedSkeleton,
       transform,
       equipped,
-      selectedMotif,
-      selectedColorMode,
-      activeSkeleton,
       showSkeleton,
       activeJointKey,
     ]);
@@ -601,66 +683,37 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
           const offCtx = offscreen.getContext("2d")!;
 
           drawCleanSubject(offCtx);
+          const effectiveSkeleton = getViewAlignedSkeleton();
 
           const order: GarmentSlot[] = equipped.fullset
             ? ["fullset", "accessory"]
             : ["bottom", "top", "outer", "accessory"];
 
-          if (subjectMode === "avatar") {
-            const bodySkewRad = (poseJoints.turn * 0.32 * Math.PI) / 180;
-            offCtx.save();
-            offCtx.translate(
-              CANVAS_W / 2 + transform.x,
-              CANVAS_H / 2 + transform.y
-            );
-            offCtx.rotate(
-              ((transform.rot + poseJoints.turn * 0.18) * Math.PI) / 180
-            );
-            offCtx.transform(1, 0, Math.tan(bodySkewRad) * 0.25, 1, 0, 0);
-            offCtx.scale(
-              0.74 * transform.scale * transform.width,
-              0.74 * transform.scale
-            );
-            for (const slot of order) {
-              const item = equipped[slot];
-              if (item) {
-                drawBatikGarmentOnCanvas(
-                  offCtx,
-                  item,
-                  selectedMotif,
-                  selectedColorMode,
-                  transform.patternScale
-                );
-              }
+          offCtx.save();
+          offCtx.globalAlpha = 0.95;
+          for (const slot of order) {
+            const entry = equipped[slot];
+            if (entry) {
+              drawSkeletalBatikGarment(
+                offCtx,
+                CANVAS_W,
+                CANVAS_H,
+                effectiveSkeleton,
+                entry.item,
+                entry.motif,
+                entry.colorMode,
+                {
+                  offsetX: transform.x,
+                  offsetY: transform.y,
+                  widthScale: transform.width,
+                  lengthScale: transform.scale,
+                  patternScale: transform.patternScale,
+                  rotDeg: transform.rot,
+                }
+              );
             }
-            offCtx.restore();
-          } else {
-            offCtx.save();
-            offCtx.globalAlpha = 0.95;
-            for (const slot of order) {
-              const item = equipped[slot];
-              if (item) {
-                drawSkeletalBatikGarment(
-                  offCtx,
-                  CANVAS_W,
-                  CANVAS_H,
-                  activeSkeleton,
-                  item,
-                  selectedMotif,
-                  selectedColorMode,
-                  {
-                    offsetX: transform.x,
-                    offsetY: transform.y,
-                    widthScale: transform.width,
-                    lengthScale: transform.scale,
-                    patternScale: transform.patternScale,
-                    rotDeg: transform.rot,
-                  }
-                );
-              }
-            }
-            offCtx.restore();
           }
+          offCtx.restore();
 
           // Subtle studio lighting & vignette pass based on selected photoStyle
           const styleStr = (photoStyleLabel || photoStyle).toLowerCase();
@@ -693,14 +746,11 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
         },
       }),
       [
-        selectedMotif,
-        selectedColorMode,
+        selectedMotif.id,
         drawCleanSubject,
+        getViewAlignedSkeleton,
         equipped,
-        subjectMode,
-        poseJoints,
         transform,
-        activeSkeleton,
         photoStyle,
       ]
     );
@@ -722,9 +772,10 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
 
       // Check if clicking near a skeletal landmark joint
       if (showSkeleton && subjectMode !== "avatar") {
-        const keys = Object.keys(activeSkeleton) as Array<keyof PoseSkeleton>;
+        const displaySkeleton = getViewAlignedSkeleton();
+        const keys = Object.keys(displaySkeleton) as Array<keyof PoseSkeleton>;
         for (const key of keys) {
-          const pt = activeSkeleton[key];
+          const pt = displaySkeleton[key];
           const jx = pt.x * CANVAS_W;
           const jy = pt.y * CANVAS_H;
           if (Math.hypot(pos.x - jx, pos.y - jy) <= 14) {
@@ -750,8 +801,18 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
 
       if (draggingJointRef.current) {
         const key = draggingJointRef.current;
-        const nx = Math.max(0.02, Math.min(0.98, pos.x / CANVAS_W));
-        const ny = Math.max(0.02, Math.min(0.98, pos.y / CANVAS_H));
+        let rawX = pos.x;
+        let rawY = pos.y;
+        if (subjectMode === "upload") {
+          const relScale = photoScale / (poseViewAnchor.scale || 100);
+          const relOffsetY = photoOffsetY - poseViewAnchor.offsetY;
+          rawX = CANVAS_W / 2 + (pos.x - CANVAS_W / 2) / relScale;
+          rawY =
+            CANVAS_H / 2 +
+            (pos.y - relOffsetY - CANVAS_H / 2) / relScale;
+        }
+        const nx = Math.max(0.02, Math.min(0.98, rawX / CANVAS_W));
+        const ny = Math.max(0.02, Math.min(0.98, rawY / CANVAS_H));
         onChangeSkeleton({
           ...activeSkeleton,
           [key]: { x: nx, y: ny },
@@ -1035,12 +1096,12 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
           </div>
         </div>
 
-        {/* Studio Lookbook Render & Comparison Controls */}
+        {/* Photorealistic AI Render & Comparison Controls */}
         <div className="flex w-full flex-col gap-2.5 rounded-lg border border-white/10 bg-[#12110F] p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#F0C265]">
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span>Render &amp; Pencahayaan Studio</span>
+              <span>Render AI Fotorealistis (Kunci 100% Wajah &amp; Tubuh)</span>
             </span>
             <div className="flex items-center gap-2">
               <label className="inline-flex items-center gap-1.5 text-[11px] text-[#A79F93] cursor-pointer">
@@ -1090,10 +1151,18 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
             <Sparkles className="h-4 w-4" />
             <span>
               {isGeneratingAi
-                ? "Memproses Fitting Studio..."
-                : "Render Hasil Fitting (Sesuai Pose)"}
+                ? "Merender Busana AI (100% Sesuai Wajah & Tubuh)..."
+                : "Render AI Fotorealistis (100% Wajah & Tubuh Asli)"}
             </span>
           </button>
+
+          {aiNeedsPaidKeyNote && (
+            <p className="text-[11px] leading-relaxed text-[#E5AA38]">
+              Untuk hasil foto AI fotorealistis (bukan overlay kerangka), aktifkan
+              API Key berbayar di panel Settings &gt; Secrets. Pratinjau kerangka
+              pose 2D tetap dapat digunakan langsung.
+            </p>
+          )}
         </div>
       </section>
     );

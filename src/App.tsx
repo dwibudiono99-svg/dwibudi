@@ -27,6 +27,7 @@ import {
 import {
   BatikWardrobePanel,
   type EquippedMap,
+  type EquippedSlotEntry,
 } from "./components/BatikWardrobePanel";
 import {
   StudioCanvas,
@@ -44,9 +45,16 @@ const DEFAULT_SKELETAL_TRANSFORM: GarmentTransform = {
   patternScale: 0.6,
 };
 
+const SLOT_LABELS: Record<GarmentSlot, string> = {
+  top: "Atasan",
+  bottom: "Bawahan",
+  outer: "Outer/Luaran",
+  fullset: "Setelan Lengkap",
+  accessory: "Aksesori",
+};
+
 export default function App() {
   const canvasRef = useRef<StudioCanvasHandle | null>(null);
-  const paidImageQuotaUnavailableRef = useRef(false);
 
   // Subject & Pose State
   const [subjectMode, setSubjectMode] = useState<SubjectMode>("studio");
@@ -58,6 +66,10 @@ export default function App() {
   >(null);
   const [photoScale, setPhotoScale] = useState(100);
   const [photoOffsetY, setPhotoOffsetY] = useState(0);
+  const [poseViewAnchor, setPoseViewAnchor] = useState({
+    scale: 100,
+    offsetY: 0,
+  });
   const [detectedPose, setDetectedPose] = useState<DetectedPose | null>(
     SAMPLE_STUDIO_MODELS[0].defaultPose
   );
@@ -87,10 +99,14 @@ export default function App() {
     touchup: "natural",
   });
 
-  // Wardrobe & Nusantara Batik State
+  // Wardrobe & Nusantara Batik State (Per-Slot Mix & Match)
   const [activeSlot, setActiveSlot] = useState<GarmentSlot>("top");
   const [equipped, setEquipped] = useState<EquippedMap>({
-    top: GARMENT_ITEMS.top[0], // Kemeja Batik Lengan Panjang
+    top: {
+      item: GARMENT_ITEMS.top[0], // Kemeja Batik Lengan Panjang
+      motif: BATIK_MOTIFS[0],
+      colorMode: BATIK_COLOR_MODES[0],
+    },
     bottom: null,
     outer: null,
     fullset: null,
@@ -103,6 +119,9 @@ export default function App() {
     BATIK_COLOR_MODES[0]
   );
   const [regionFilter, setRegionFilter] = useState<BatikRegion>("all");
+  const [applyMotifScope, setApplyMotifScope] = useState<"active_slot" | "all">(
+    "active_slot"
+  );
   const [autoFitOnMotifClick, setAutoFitOnMotifClick] = useState(false);
 
   // Canvas & AI State
@@ -116,9 +135,10 @@ export default function App() {
     "Editorial Lookbook Studio, pencahayaan softbox bersih, lensa 85mm"
   );
   const [directorNote, setDirectorNote] = useState(
-    "Pertahankan pose tubuh dan wajah asli secara presisi, lipatan kain batik mengikuti postur tubuh."
+    "Pertahankan 100% bentuk tubuh, proporsi, dan wajah asli; lipatan kain batik mengikuti postur tubuh."
   );
-  const [highQualityAi, setHighQualityAi] = useState(false);
+  const [highQualityAi, setHighQualityAi] = useState(true);
+  const [aiNeedsPaidKeyNote, setAiNeedsPaidKeyNote] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
@@ -136,7 +156,11 @@ export default function App() {
     SAMPLE_STUDIO_MODELS[0];
 
   const runPoseDetection = useCallback(
-    async (imageDataUrl: string) => {
+    async (
+      imageDataUrl: string,
+      anchorScale = photoScale,
+      anchorOffsetY = photoOffsetY
+    ) => {
       setIsDetectingPose(true);
       try {
         const res = await fetch("/api/detect-pose", {
@@ -161,6 +185,7 @@ export default function App() {
           if (pose.skeleton) {
             setActiveSkeleton(pose.skeleton);
           }
+          setPoseViewAnchor({ scale: anchorScale, offsetY: anchorOffsetY });
           setTransform(DEFAULT_SKELETAL_TRANSFORM);
           setPoseJoints((prev) => ({
             ...prev,
@@ -179,7 +204,7 @@ export default function App() {
         setIsDetectingPose(false);
       }
     },
-    [showToast]
+    [photoScale, photoOffsetY, showToast]
   );
 
   const handleUploadPhotoFile = (file: File) => {
@@ -192,13 +217,14 @@ export default function App() {
       setAiResultUrl(null);
       setPhotoScale(100);
       setPhotoOffsetY(0);
+      setPoseViewAnchor({ scale: 100, offsetY: 0 });
       setActiveSkeleton(DEFAULT_UPRIGHT_SKELETON);
       setTransform(DEFAULT_SKELETAL_TRANSFORM);
       setShowOverlay2D(true);
       setTimeout(() => {
         const cleanDataUrl =
           canvasRef.current?.getCleanSubjectDataUrl() || dataUrl;
-        void runPoseDetection(cleanDataUrl);
+        void runPoseDetection(cleanDataUrl, 100, 0);
       }, 150);
     };
     reader.readAsDataURL(file);
@@ -224,46 +250,59 @@ export default function App() {
       setEquipped((prev) => ({
         ...prev,
         fullset: null,
-        top: recommendedTop,
+        top: {
+          item: recommendedTop,
+          motif: prev.top?.motif || selectedMotif,
+          colorMode: prev.top?.colorMode || selectedColorMode,
+        },
       }));
     }
     showToast(`Model ${found.name} aktif dengan kerangka pose terkalibrasi.`);
   };
 
   const runAiTryOn = useCallback(
-    async (overrideMotif?: BatikMotif, overrideColorMode?: BatikColorMode) => {
-      const motifToUse = overrideMotif || selectedMotif;
-      const colorModeToUse = overrideColorMode || selectedColorMode;
+    async (overrideEquipped?: EquippedMap) => {
+      const activeEquipped = overrideEquipped || equipped;
 
-      const equippedList: string[] = [];
-      if (equipped.fullset) {
-        equippedList.push(
-          `Setelan Lengkap: ${equipped.fullset.name} (${equipped.fullset.desc})`
-        );
-      } else {
-        if (equipped.top) {
-          equippedList.push(
-            `Atasan: ${equipped.top.name} (${equipped.top.desc})`
-          );
-        }
-        if (equipped.bottom) {
-          equippedList.push(
-            `Bawahan: ${equipped.bottom.name} (${equipped.bottom.desc})`
-          );
-        }
-        if (equipped.outer) {
-          equippedList.push(
-            `Outer/Luaran: ${equipped.outer.name} (${equipped.outer.desc})`
-          );
-        }
-      }
-      if (equipped.accessory) {
-        equippedList.push(
-          `Aksesori: ${equipped.accessory.name} (${equipped.accessory.desc})`
-        );
+      const slotsOrder: GarmentSlot[] = activeEquipped.fullset
+        ? ["fullset", "accessory"]
+        : ["top", "bottom", "outer", "accessory"];
+
+      const outfitPieces: Array<{
+        slot: string;
+        slotLabel: string;
+        itemName: string;
+        itemDesc: string;
+        usesBatikPattern: boolean;
+        solidColor?: string;
+        motifName?: string;
+        motifOrigin?: string;
+        motifPhilosophy?: string;
+        colorModeName?: string;
+        swatchImageBase64?: string;
+      }> = [];
+
+      for (const slot of slotsOrder) {
+        const entry = activeEquipped[slot];
+        if (!entry) continue;
+        outfitPieces.push({
+          slot,
+          slotLabel: SLOT_LABELS[slot],
+          itemName: entry.item.name,
+          itemDesc: entry.item.desc,
+          usesBatikPattern: entry.item.usesBatikPattern,
+          solidColor: entry.item.solidFallbackColor,
+          motifName: entry.motif.name,
+          motifOrigin: `${entry.motif.origin}, ${entry.motif.regionLabel}`,
+          motifPhilosophy: entry.motif.philosophy,
+          colorModeName: entry.colorMode.name,
+          swatchImageBase64: entry.item.usesBatikPattern
+            ? renderBatikSwatchDataUrl(entry.motif, entry.colorMode)
+            : undefined,
+        });
       }
 
-      if (equippedList.length === 0) {
+      if (outfitPieces.length === 0) {
         showToast("Pilih minimal satu potongan busana batik terlebih dahulu.");
         return;
       }
@@ -279,25 +318,9 @@ export default function App() {
         return;
       }
 
-      if (paidImageQuotaUnavailableRef.current) {
-        const compositeUrl =
-          canvasRef.current?.renderStudioCompositeDataUrl(photoStyle);
-        if (compositeUrl) {
-          setAiResultUrl(compositeUrl);
-        }
-        showToast(
-          `Hasil fitting studio Batik ${motifToUse.name} dirender sesuai kerangka pose.`
-        );
-        return;
-      }
-
       setIsGeneratingAi(true);
+      setAiNeedsPaidKeyNote(false);
       try {
-        const swatchDataUrl = renderBatikSwatchDataUrl(
-          motifToUse,
-          colorModeToUse
-        );
-
         const poseDescription =
           subjectMode === "avatar"
             ? `${avatarConfig.pose}, body turn ${poseJoints.turn} deg, left arm ${poseJoints.armL} deg, right arm ${poseJoints.armR} deg`
@@ -311,11 +334,7 @@ export default function App() {
           body: JSON.stringify({
             subjectImageBase64: subjectCleanBase64,
             subjectMimeType: "image/png",
-            swatchImageBase64: swatchDataUrl,
-            outfitSummary: equippedList.join("; "),
-            motifName: `${motifToUse.name} (${colorModeToUse.name})`,
-            motifOrigin: `${motifToUse.origin}, ${motifToUse.regionLabel}`,
-            motifDescription: motifToUse.philosophy,
+            outfitPieces,
             poseDescription,
             photoStyle,
             directorNote,
@@ -330,39 +349,34 @@ export default function App() {
         if (data.imageUrl) {
           setAiResultUrl(data.imageUrl);
           showToast(
-            `Batik ${motifToUse.name} berhasil dipasangkan sesuai pose foto.`
+            "Render AI selesai: busana terpasang presisi dengan wajah & tubuh 100% asli."
           );
-        } else if (data.fallbackMode || !res.ok) {
-          if (data.reason === "paid_key_required") {
-            paidImageQuotaUnavailableRef.current = true;
-          }
+        } else if (data.needsPaidKey) {
+          setAiNeedsPaidKeyNote(true);
+          setAutoFitOnMotifClick(false);
           const compositeUrl =
             canvasRef.current?.renderStudioCompositeDataUrl(photoStyle);
           if (compositeUrl) {
             setAiResultUrl(compositeUrl);
           }
-          setAutoFitOnMotifClick(false);
           showToast(
-            `Hasil fitting studio Batik ${motifToUse.name} selesai dirender sesuai kerangka pose.`
+            "Pratinjau Studio Lokal dirender sesuai pose. Render AI awan memerlukan API Key berbayar di Settings > Secrets."
+          );
+        } else {
+          showToast(
+            data.message ||
+              "Render AI belum mengembalikan gambar. Silakan coba ulangi."
           );
         }
       } catch {
-        const compositeUrl =
-          canvasRef.current?.renderStudioCompositeDataUrl(photoStyle);
-        if (compositeUrl) {
-          setAiResultUrl(compositeUrl);
-        }
-        setAutoFitOnMotifClick(false);
         showToast(
-          `Hasil fitting studio Batik ${motifToUse.name} selesai dirender sesuai kerangka pose.`
+          "Gagal menghubungi layanan render AI. Pratinjau kerangka pose tetap aktif."
         );
       } finally {
         setIsGeneratingAi(false);
       }
     },
     [
-      selectedMotif,
-      selectedColorMode,
       equipped,
       subjectMode,
       uploadedPhotoDataUrl,
@@ -377,46 +391,120 @@ export default function App() {
     ]
   );
 
+  const handleChangeActiveSlot = (slot: GarmentSlot) => {
+    setActiveSlot(slot);
+    const entry = equipped[slot];
+    if (entry) {
+      setSelectedMotif(entry.motif);
+      setSelectedColorMode(entry.colorMode);
+    }
+  };
+
   const handleEquipItem = (item: GarmentItem) => {
-    setAiResultUrl(null);
     setShowOverlay2D(true);
-    setEquipped((prev) => {
+    const currentEntry = equipped[item.slot];
+    const isAlreadySelected = currentEntry?.item.id === item.id;
+    const equippedCount = Object.values(equipped).filter(Boolean).length;
+
+    let nextEquipped: EquippedMap;
+    if (isAlreadySelected && equippedCount > 1) {
+      nextEquipped = {
+        ...equipped,
+        [item.slot]: null,
+      };
+    } else {
+      const nextEntry: EquippedSlotEntry = {
+        item,
+        motif: currentEntry?.motif || selectedMotif,
+        colorMode: currentEntry?.colorMode || selectedColorMode,
+      };
       if (item.slot === "fullset") {
-        return {
-          ...prev,
+        nextEquipped = {
+          ...equipped,
           top: null,
           bottom: null,
           outer: null,
-          fullset: item,
+          fullset: nextEntry,
+        };
+      } else {
+        nextEquipped = {
+          ...equipped,
+          fullset: ["top", "bottom", "outer"].includes(item.slot)
+            ? null
+            : equipped.fullset,
+          [item.slot]: nextEntry,
         };
       }
-      return {
-        ...prev,
-        fullset: ["top", "bottom", "outer"].includes(item.slot)
-          ? null
-          : prev.fullset,
-        [item.slot]: item,
-      };
-    });
+    }
+
+    setEquipped(nextEquipped);
+    if (autoFitOnMotifClick) {
+      void runAiTryOn(nextEquipped);
+    } else {
+      setAiResultUrl(null);
+    }
   };
 
   const handleUnequipSlot = (slot: GarmentSlot) => {
+    const nextEquipped = { ...equipped, [slot]: null };
+    setEquipped(nextEquipped);
     setAiResultUrl(null);
-    setEquipped((prev) => ({ ...prev, [slot]: null }));
+  };
+
+  const applyStylingChange = (
+    motif: BatikMotif,
+    colorMode: BatikColorMode
+  ): EquippedMap => {
+    const nextEquipped: EquippedMap = { ...equipped };
+
+    if (applyMotifScope === "all") {
+      const hasMain =
+        nextEquipped.top ||
+        nextEquipped.bottom ||
+        nextEquipped.outer ||
+        nextEquipped.fullset;
+      if (!hasMain) {
+        nextEquipped.top = {
+          item: GARMENT_ITEMS.top[0],
+          motif,
+          colorMode,
+        };
+      }
+      (Object.keys(nextEquipped) as GarmentSlot[]).forEach((slot) => {
+        const entry = nextEquipped[slot];
+        if (entry) {
+          nextEquipped[slot] = { ...entry, motif, colorMode };
+        }
+      });
+    } else {
+      let targetEntry = nextEquipped[activeSlot];
+      if (!targetEntry) {
+        const defaultItem = GARMENT_ITEMS[activeSlot]?.[0];
+        if (defaultItem) {
+          targetEntry = { item: defaultItem, motif, colorMode };
+          if (activeSlot === "fullset") {
+            nextEquipped.top = null;
+            nextEquipped.bottom = null;
+            nextEquipped.outer = null;
+          } else if (["top", "bottom", "outer"].includes(activeSlot)) {
+            nextEquipped.fullset = null;
+          }
+        }
+      } else {
+        targetEntry = { ...targetEntry, motif, colorMode };
+      }
+      nextEquipped[activeSlot] = targetEntry;
+    }
+
+    return nextEquipped;
   };
 
   const handleSelectMotif = (motif: BatikMotif) => {
     setSelectedMotif(motif);
-    if (
-      !equipped.top &&
-      !equipped.fullset &&
-      !equipped.outer &&
-      !equipped.bottom
-    ) {
-      setEquipped((prev) => ({ ...prev, top: GARMENT_ITEMS.top[0] }));
-    }
+    const nextEquipped = applyStylingChange(motif, selectedColorMode);
+    setEquipped(nextEquipped);
     if (autoFitOnMotifClick) {
-      void runAiTryOn(motif, selectedColorMode);
+      void runAiTryOn(nextEquipped);
     } else {
       setAiResultUrl(null);
       setShowOverlay2D(true);
@@ -425,8 +513,10 @@ export default function App() {
 
   const handleSelectColorMode = (mode: BatikColorMode) => {
     setSelectedColorMode(mode);
+    const nextEquipped = applyStylingChange(selectedMotif, mode);
+    setEquipped(nextEquipped);
     if (autoFitOnMotifClick) {
-      void runAiTryOn(selectedMotif, mode);
+      void runAiTryOn(nextEquipped);
     } else {
       setAiResultUrl(null);
       setShowOverlay2D(true);
@@ -584,6 +674,7 @@ export default function App() {
             uploadedPhotoDataUrl={uploadedPhotoDataUrl}
             photoScale={photoScale}
             photoOffsetY={photoOffsetY}
+            poseViewAnchor={poseViewAnchor}
             avatarConfig={avatarConfig}
             poseJoints={poseJoints}
             faceAdjust={faceAdjust}
@@ -609,11 +700,12 @@ export default function App() {
             onChangeDirectorNote={setDirectorNote}
             highQualityAi={highQualityAi}
             onToggleHighQualityAi={setHighQualityAi}
+            aiNeedsPaidKeyNote={aiNeedsPaidKeyNote}
           />
 
           <BatikWardrobePanel
             activeSlot={activeSlot}
-            onChangeActiveSlot={setActiveSlot}
+            onChangeActiveSlot={handleChangeActiveSlot}
             equipped={equipped}
             onEquipItem={handleEquipItem}
             onUnequipSlot={handleUnequipSlot}
@@ -633,6 +725,8 @@ export default function App() {
             onSelectColorMode={handleSelectColorMode}
             regionFilter={regionFilter}
             onChangeRegionFilter={setRegionFilter}
+            applyMotifScope={applyMotifScope}
+            onChangeApplyMotifScope={setApplyMotifScope}
             autoFitOnMotifClick={autoFitOnMotifClick}
             onToggleAutoFitOnMotifClick={setAutoFitOnMotifClick}
           />

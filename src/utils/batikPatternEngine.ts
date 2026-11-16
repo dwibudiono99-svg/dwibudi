@@ -544,36 +544,36 @@ export function drawSkeletalBatikGarment(
   const shoulderWidth = Math.max(40, dist(ls, rs));
   const torsoHeight = Math.max(60, dist(lerpPt(ls, rs, 0.5), lerpPt(lh, rh, 0.5)));
 
-  // Expand shoulders slightly for realistic fabric thickness
+  // Expand shoulders slightly for realistic fabric drape
   const dirLR = {
     x: (ls.x - rs.x) / shoulderWidth,
     y: (ls.y - rs.y) / shoulderWidth,
   };
   const lsOuter = {
-    x: ls.x + dirLR.x * shoulderWidth * 0.09,
-    y: ls.y + dirLR.y * shoulderWidth * 0.09 - 4,
+    x: ls.x + dirLR.x * shoulderWidth * 0.05,
+    y: ls.y + dirLR.y * shoulderWidth * 0.05 - 3,
   };
   const rsOuter = {
-    x: rs.x - dirLR.x * shoulderWidth * 0.09,
-    y: rs.y - dirLR.y * shoulderWidth * 0.09 - 4,
+    x: rs.x - dirLR.x * shoulderWidth * 0.05,
+    y: rs.y - dirLR.y * shoulderWidth * 0.05 - 3,
   };
 
-  // Neck collar opening anchors
-  const collarL = lerpPt(neck, ls, 0.34);
-  const collarR = lerpPt(neck, rs, 0.34);
+  // Neck collar opening anchors hugging the collarbone
+  const collarL = lerpPt(neck, ls, 0.3);
+  const collarR = lerpPt(neck, rs, 0.3);
   const neckDip = {
     x: neck.x,
-    y: neck.y + torsoHeight * 0.14,
+    y: neck.y + torsoHeight * 0.09,
   };
 
-  // Hip outer edges
+  // Hip outer edges hugging natural torso/waist proportions
   const hipMid = lerpPt(lh, rh, 0.5);
   const lhOuter = {
-    x: lh.x + (lh.x - hipMid.x) * 0.32,
+    x: lh.x + (lh.x - hipMid.x) * 0.18,
     y: lh.y,
   };
   const rhOuter = {
-    x: rh.x + (rh.x - hipMid.x) * 0.32,
+    x: rh.x + (rh.x - hipMid.x) * 0.18,
     y: rh.y,
   };
 
@@ -592,7 +592,7 @@ export function drawSkeletalBatikGarment(
     }
     ctx.fill();
     ctx.strokeStyle = shadeHex(palette.base, -35);
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = 1.4;
     ctx.stroke();
 
     // Soft cylindrical body lighting gradient
@@ -605,8 +605,8 @@ export function drawSkeletalBatikGarment(
     ctx.fill();
   };
 
-  const upperSleeveR = Math.max(11, shoulderWidth * 0.14);
-  const wristSleeveR = Math.max(8, shoulderWidth * 0.1);
+  const upperSleeveR = Math.max(9.5, shoulderWidth * 0.118);
+  const wristSleeveR = Math.max(7, shoulderWidth * 0.085);
 
   switch (item.shape) {
     case "kemeja_panjang":

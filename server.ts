@@ -158,7 +158,7 @@ async function startServer() {
     }
   });
 
-  // 2. Optional Photorealistic Batik Virtual Try-On Endpoint (requires paid image model key)
+  // 2. Photorealistic Batik Virtual Try-On Endpoint (100% Identity, Body Shape & Pose Lock)
   app.post("/api/try-on", async (req, res) => {
     try {
       const {
@@ -166,6 +166,7 @@ async function startServer() {
         subjectMimeType,
         swatchImageBase64,
         outfitSummary,
+        outfitPieces,
         motifName,
         motifOrigin,
         motifDescription,
@@ -181,6 +182,19 @@ async function startServer() {
         subjectMimeType?: string;
         swatchImageBase64?: string;
         outfitSummary?: string;
+        outfitPieces?: Array<{
+          slot: string;
+          slotLabel: string;
+          itemName: string;
+          itemDesc: string;
+          usesBatikPattern: boolean;
+          solidColor?: string;
+          motifName?: string;
+          motifOrigin?: string;
+          motifPhilosophy?: string;
+          colorModeName?: string;
+          swatchImageBase64?: string;
+        }>;
         motifName?: string;
         motifOrigin?: string;
         motifDescription?: string;
@@ -193,7 +207,8 @@ async function startServer() {
         highQuality?: boolean;
       };
 
-      if (!subjectImageBase64 || !outfitSummary) {
+      const hasPieces = Array.isArray(outfitPieces) && outfitPieces.length > 0;
+      if (!subjectImageBase64 || (!outfitSummary && !hasPieces)) {
         return res.status(400).json({
           error: "Foto model dan pilihan busana batik wajib dilengkapi.",
         });
@@ -204,15 +219,15 @@ async function startServer() {
 
       const touchupInstructions: Record<string, string> = {
         natural:
-          "Keep the subject's face 100% identical without changing facial bone structure, eyes, nose, lips, skin details, or expression.",
+          "Keep the subject's face 100% identical pixel-for-pixel in facial bone structure, eyes, nose, lips, eyebrows, skin texture, and expression.",
         bright_smooth:
-          "Keep the exact facial identity and structure 100% unchanged, only applying gentle natural studio skin glow and soft fill lighting.",
+          "Keep the exact facial identity and bone structure 100% unchanged, only harmonizing soft fill studio lighting on the skin.",
         gentle_smile:
-          "Keep the exact facial identity and features 100% unchanged, with only a subtle warm natural smile.",
+          "Keep the exact facial identity and features 100% unchanged, preserving the natural expression.",
         light_makeup:
-          "Keep the exact facial identity 100% unchanged, adding only refined subtle editorial makeup.",
+          "Keep the exact facial identity 100% unchanged, with only subtle natural editorial finish.",
         clean_groomed:
-          "Keep the exact facial identity 100% unchanged, with clean editorial studio portrait retouching.",
+          "Keep the exact facial identity 100% unchanged, with clean editorial studio portrait lighting.",
       };
 
       const faceRule =
@@ -222,23 +237,6 @@ async function startServer() {
       const modelName = highQuality
         ? "gemini-nano-banana-2.1"
         : "gemini-3.1-flash-lite-image";
-
-      const promptText = `High-precision photorealistic Indonesian Batik virtual try-on image editing.
-Image 1 is the EXACT human model / user photo.
-${swatchImageBase64 ? "Image 2 is the EXACT Batik Nusantara textile pattern swatch to apply onto the garment fabric." : ""}
-
-TASK:
-Dress the person from Image 1 in this Indonesian Batik outfit:
-${outfitSummary}
-Selected Batik Motif: ${motifName || "Batik Nusantara"} (${motifOrigin || "Indonesia"}) — ${motifDescription || "authentic hand-drawn wax-resist canting batik textile"}.
-
-STRICT ANATOMICAL, POSE & IDENTITY LOCK (CRITICAL):
-1. Preserve 100% of the person's exact face, facial features, skin tone, hair/hijab, expression, body proportions, and exact pose (${poseDescription || "preserve exact pose from Image 1"}).
-2. Do NOT move, warp, straighten, or alter the person's head, neck, shoulders, arms, elbows, hands, fingers, torso lean, or legs. Every limb must remain in its exact pixel position from Image 1.
-3. Tailor and drape the Batik garment naturally over the person's exact body posture—wrapping convincingly around bent arms, shoulders, hands in pockets, waistlines, and fabric creases with realistic textile physics, crisp Batik motif alignment, collar construction, seams, and natural shadows.
-4. Keep the exact background environment from Image 1 unless subtly enhanced for studio lighting harmony.
-5. ${faceRule}
-6. Photography & Tone: ${photoStyle || "Editorial Lookbook Studio"}, brightness ${brightness ?? 100}%, contrast ${contrast ?? 100}%. Stylist note: ${directorNote || "natural balanced studio lighting"}.`;
 
       const parts: Array<
         | { text: string }
@@ -252,15 +250,75 @@ STRICT ANATOMICAL, POSE & IDENTITY LOCK (CRITICAL):
         },
       ];
 
-      if (swatchImageBase64) {
-        const swatchParsed = stripDataUrlPrefix(swatchImageBase64);
-        parts.push({
-          inlineData: {
-            data: swatchParsed.data,
-            mimeType: swatchParsed.mimeType,
-          },
-        });
+      // Attach unique swatch images per mix-and-match piece
+      const swatchIndexMap = new Map<string, number>();
+      const pieceDescriptions: string[] = [];
+
+      if (hasPieces && outfitPieces) {
+        for (const piece of outfitPieces) {
+          if (piece.usesBatikPattern && piece.swatchImageBase64) {
+            let imgIdx = swatchIndexMap.get(piece.swatchImageBase64);
+            if (!imgIdx) {
+              const parsedSwatch = stripDataUrlPrefix(piece.swatchImageBase64);
+              parts.push({
+                inlineData: {
+                  data: parsedSwatch.data,
+                  mimeType: parsedSwatch.mimeType,
+                },
+              });
+              imgIdx = parts.length; // 1-based image index (Image 2, Image 3, ...)
+              swatchIndexMap.set(piece.swatchImageBase64, imgIdx);
+            }
+            pieceDescriptions.push(
+              `- ${piece.slotLabel}: ${piece.itemName} (${piece.itemDesc}). Apply EXACT Batik pattern from Image ${imgIdx} — Motif "${piece.motifName}" (${piece.motifOrigin || "Indonesia"}, color "${piece.colorModeName || "Asli"}").`
+            );
+          } else {
+            pieceDescriptions.push(
+              `- ${piece.slotLabel}: ${piece.itemName} (${piece.itemDesc}). Solid tailored fabric${piece.solidColor ? ` (${piece.solidColor})` : ""}.`
+            );
+          }
+        }
+      } else {
+        if (swatchImageBase64) {
+          const swatchParsed = stripDataUrlPrefix(swatchImageBase64);
+          parts.push({
+            inlineData: {
+              data: swatchParsed.data,
+              mimeType: swatchParsed.mimeType,
+            },
+          });
+        }
+        pieceDescriptions.push(
+          `- Outfit: ${outfitSummary}. Motif: ${motifName || "Batik Nusantara"} (${motifOrigin || "Indonesia"}) — ${motifDescription || "authentic Indonesian wax-resist batik"}.`
+        );
       }
+
+      const equippedSlots = hasPieces && outfitPieces ? outfitPieces.map((p) => p.slot) : [];
+      const preserveUntouched: string[] = [];
+      if (hasPieces && !equippedSlots.includes("fullset")) {
+        if (!equippedSlots.includes("top") && !equippedSlots.includes("outer")) {
+          preserveUntouched.push("upper-body top");
+        }
+        if (!equippedSlots.includes("bottom")) {
+          preserveUntouched.push("lower-body pants/skirt and shoes");
+        }
+      }
+
+      const promptText = `PRECISION PHOTOREALISTIC VIRTUAL TRY-ON (INPAINTING / GARMENT REPLACEMENT ONLY).
+Image 1 is the EXACT target person/model photograph.
+${swatchIndexMap.size > 0 || swatchImageBase64 ? "Subsequent reference image(s) are the EXACT Indonesian Batik textile pattern swatches to map onto the corresponding garment fabric." : ""}
+
+MIX & MATCH OUTFIT TO TAILOR ONTO IMAGE 1:
+${pieceDescriptions.join("\n")}
+${preserveUntouched.length > 0 ? `Keep the person's existing ${preserveUntouched.join(" and ")} from Image 1 unchanged.` : ""}
+
+ABSOLUTE 100% FACE, BODY SHAPE & POSE LOCK (NON-NEGOTIABLE):
+1. ZERO body reshaping: Preserve 100% of the person's exact body shape, weight, waist width, hip curve, shoulder width, chest/torso volume, arm thickness, leg silhouette, height, and proportions from Image 1. Do NOT make the person slimmer, wider, taller, or more muscular.
+2. ZERO facial modification: ${faceRule} Do NOT alter face shape, jawline, hairstyle, hijab wrap/color (unless hijab accessory was explicitly selected), skin tone, or gaze.
+3. ZERO pose shift: Maintain the EXACT pixel coordinates of head, neck, shoulders, elbows, wrists, hands, fingers, torso tilt, hips, knees, feet, and camera framing (${poseDescription || "exact posture from Image 1"}). Hands in pockets, hands on hips, or crossed arms MUST remain in the exact same position ON TOP OF / naturally interacting with the tailored Batik fabric.
+4. REALISTIC TAILORING & TEXTILE PHYSICS: Replace only the targeted clothing regions with cleanly tailored Indonesian Batik garments matching each swatch pattern's exact motifs, line work, and colors, complete with realistic collar construction, seam lines, fabric folds, shadows, and ambient studio lighting.
+5. IMMUTABLE BACKGROUND: Keep the exact background studio wall, floor, and camera crop from Image 1 without shifting or re-framing.
+6. Tone & Styling: ${photoStyle || "Editorial Lookbook Studio"}, brightness ${brightness ?? 100}%, contrast ${contrast ?? 100}%. Note: ${directorNote || "natural balanced studio lighting"}.`;
 
       parts.push({ text: promptText });
 
@@ -291,7 +349,7 @@ STRICT ANATOMICAL, POSE & IDENTITY LOCK (CRITICAL):
         fallbackMode: true,
         reason: "no_image_part",
         message:
-          "Hasil fitting dirender menggunakan Mode Kerangka Pose Studio.",
+          "Model AI tidak mengembalikan gambar. Silakan coba ulangi render AI.",
       });
     } catch (err: unknown) {
       const message =
@@ -311,9 +369,10 @@ STRICT ANATOMICAL, POSE & IDENTITY LOCK (CRITICAL):
       if (isKeyOrQuota) {
         return res.json({
           fallbackMode: true,
+          needsPaidKey: true,
           reason: "paid_key_required",
           message:
-            "Mode Fitting Studio Lokal aktif (render awan memerlukan kuota berbayar). Busana dirender presisi sesuai kerangka pose.",
+            "Render gambar AI fotorealistis memerlukan API Key berbayar pada Settings > Secrets.",
         });
       }
 
@@ -322,7 +381,7 @@ STRICT ANATOMICAL, POSE & IDENTITY LOCK (CRITICAL):
         fallbackMode: true,
         reason: "service_unavailable",
         message:
-          "Mode Fitting Studio Lokal aktif untuk merender hasil busana sesuai pose.",
+          "Layanan render gambar AI sedang sibuk. Pratinjau Kerangka Pose tetap aktif.",
       });
     }
   });
