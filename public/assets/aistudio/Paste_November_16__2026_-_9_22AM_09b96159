@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio Outfit Mix & Match (Versi Ringan)</title>
+    <style>
+        :root {
+            --bg: #0f1115;
+            --card: #181b21;
+            --card-alt: #20242c;
+            --border: #2c313c;
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --primary: #6366f1;
+            --accent: #f59e0b;
+            --danger: #ef4444;
+            --radius: 12px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+        /* Header */
+        header {
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+        .brand { display: flex; align-items: center; gap: 10px; }
+        .brand-badge {
+            width: 34px; height: 34px; border-radius: 9px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: grid; place-items: center; font-weight: 800; font-size: 16px; color: #fff;
+        }
+        .brand h1 { font-size: 15px; font-weight: 700; }
+        .brand span { font-size: 11px; color: var(--muted); display: block; }
+
+        .btn {
+            border: 1px solid var(--border);
+            background: var(--card-alt);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 9px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.15s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn:hover { border-color: #4b5563; background: #282d37; }
+        .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .btn-primary:hover { background: #4f46e5; }
+        .btn-accent { background: var(--accent); border-color: var(--accent); color: #111827; }
+        .btn-accent:hover { background: #d97706; }
+
+        /* Main Grid */
+        main {
+            flex: 1;
+            max-width: 1360px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 14px;
+            display: grid;
+            grid-template-columns: 280px 1fr 340px;
+            gap: 14px;
+        }
+        @media (max-width: 1024px) {
+            main { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .panel-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Tabs & Controls */
+        .tab-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            background: var(--bg);
+            padding: 4px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            gap: 4px;
+        }
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            padding: 7px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 7px;
+            cursor: pointer;
+        }
+        .tab-btn.active { background: var(--primary); color: #fff; }
+
+        label.field-label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+        select, input[type="text"] {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            outline: none;
+        }
+        select:focus, input[type="text"]:focus { border-color: var(--primary); }
+
+        .swatch-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .swatch {
+            width: 22px; height: 22px; border-radius: 50%;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .swatch.active { border-color: var(--accent); transform: scale(1.15); }
+
+        /* Canvas Area */
+        .canvas-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .canvas-frame {
+            width: 100%;
+            max-width: 390px;
+            aspect-ratio: 3 / 4;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            background: #13161b;
+            position: relative;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: grab;
+            touch-action: none;
+        }
+        canvas:active { cursor: grabbing; }
+        .canvas-hint {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 17, 21, 0.8);
+            padding: 4px 10px;
+            border-radius: 99px;
+            font-size: 11px;
+            color: #d1d5db;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .slider-grid {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            background: var(--bg);
+            padding: 10px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+        }
+        .slider-item label { font-size: 10px; color: var(--muted); display: flex; justify-content: space-between; margin-bottom: 4px; }
+        input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+        /* Wardrobe & Tray */
+        .tray-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .tray-slot {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 7px 9px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            cursor: pointer;
+        }
+        .tray-slot.active { border-color: var(--primary); }
+        .tray-info { min-width: 0; }
+        .tray-info small { font-size: 10px; color: var(--muted); display: block; }
+        .tray-info strong { font-size: 11px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.3); flex-shrink: 0; }
+
+        .slot-tabs {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+            background: var(--bg);
+            padding: 4px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+        }
+        .slot-tab {
+            background: transparent; border: none; color: var(--muted);
+            padding: 6px 2px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer;
+        }
+        .slot-tab.active { background: var(--primary); color: #fff; }
+
+        .pills { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; }
+        .pill {
+            background: var(--card-alt); border: 1px solid var(--border); color: var(--muted);
+            padding: 4px 9px; border-radius: 99px; font-size: 11px; cursor: pointer; white-space: nowrap;
+        }
+        .pill.active { background: var(--accent); color: #111827; border-color: var(--accent); font-weight: 700; }
+
+        .items-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            max-height: 310px;
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+        .item-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 9px;
+            cursor: pointer;
+            transition: 0.12s;
+        }
+        .item-card:hover { border-color: #4b5563; }
+        .item-card.selected { border-color: var(--primary); background: rgba(99, 102, 241, 0.12); }
+        .item-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .item-tag { font-size: 9px; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: var(--card-alt); color: var(--muted); }
+        .item-card h4 { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+        .item-card p { font-size: 10px; color: var(--muted); line-height: 1.3; }
+
+        .hidden { display: none !important; }
+        .upload-box {
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 20px 12px;
+            text-align: center;
+            cursor: pointer;
+            background: var(--bg);
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .upload-box:hover { border-color: var(--primary); color: var(--text); }
+
+        .btn-ai {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary), #9333ea, var(--accent));
+            border: none;
+            color: #fff;
+            padding: 11px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+            transition: transform 0.15s, opacity 0.15s;
+        }
+        .btn-ai:hover { opacity: 0.95; transform: translateY(-1px); }
+
+        .loader-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 17, 21, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 18px;
+            z-index: 15;
+        }
+        .compare-overlay {
+            position: absolute;
+            inset: 0;
+            cursor: ew-resize;
+            z-index: 12;
+            user-select: none;
+            touch-action: none;
+        }
+        .compare-divider {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--accent);
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.9);
+            left: 50%;
+        }
+        .compare-handle {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #111827;
+            font-weight: 800;
+            font-size: 11px;
+            display: grid;
+            place-items: center;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+        .compare-badge {
+            position: absolute;
+            top: 10px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            color: #fff;
+            pointer-events: none;
+        }
+        .spinner {
+            width: 34px; height: 34px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #toast {
+            position: fixed; bottom: 16px; right: 16px;
+            background: #1f2937; border: 1px solid var(--primary); color: #fff;
+            padding: 10px 14px; border-radius: 9px; font-size: 12px;
+            opacity: 0; pointer-events: none; transition: 0.2s; z-index: 50;
+        }
+        #toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div id="toast"></div>
+
+    <header>
+        <div class="brand">
+            <div class="brand-badge">OM</div>
+            <div>
+                <h1>Studio Outfit Mix & Match</h1>
+                <span>Versi Ringan & Cepat • Tanpa Loading</span>
+            </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button class="btn" onclick="randomizeAll()">Acak Gaya</button>
+            <button class="btn btn-primary" onclick="downloadPNG()">Unduh PNG</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- KOLOM 1: MODEL & POSE -->
+        <section class="panel">
+            <div class="panel-title">
+                <span>1. Model & Pose</span>
+                <button class="btn" style="padding:3px 8px; font-size:11px;" onclick="randomizeModel()">Acak Model</button>
+            </div>
+
+            <div class="tab-group">
+                <button id="btnModeAi" class="tab-btn active" onclick="setSubjectMode('ai')">Model Avatar</button>
+                <button id="btnModeUpload" class="tab-btn" onclick="setSubjectMode('upload')">Upload Foto</button>
+            </div>
+
+            <!-- Panel Model Avatar -->
+            <div id="panelAi" style="display:flex; flex-direction:column; gap:10px;">
+                <div>
+                    <label class="field-label">Posisi / Pose Tubuh</label>
+                    <select id="selPose" onchange="updateModel()">
+                        <option value="standing_front">Berdiri Tegak Frontal</option>
+                        <option value="side_casual">Pose Santai 3/4</option>
+                        <option value="walking_runway">Berjalan Runway</option>
+                        <option value="hand_on_hip">Tangan di Pinggang</option>
+                        <option value="sitting_casual">Duduk Kasual</option>
+                    </select>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                    <div>
+                        <label class="field-label">Gender</label>
+                        <select id="selGender" onchange="updateModel()">
+                            <option value="female">Wanita</option>
+                            <option value="male">Pria</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label">Rambut / Hijab</label>
+                        <select id="selHair" onchange="updateModel()">
+                            <option value="bun">Sanggul / Cepol</option>
+                            <option value="long">Panjang Terurai</option>
+                            <option value="bob">Bob Modern</option>
+                            <option value="hijab">Hijab Modern</option>
+                            <option value="short">Pendek Rapi</option>
+                            <option value="undercut">Undercut</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="field-label">Warna Kulit</label>
+                    <div id="skinSwatches" class="swatch-row"></div>
+                </div>
+
+                <div>
+                    <label class="field-label">Latar Belakang</label>
+                    <div id="bgSwatches" class="swatch-row"></div>
+                </div>
+
+                <!-- Kontrol Pose Proporsional -->
+                <div style="border-top:1px solid var(--border); padding-top:8px; display:flex; flex-direction:column; gap:6px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label class="field-label" style="margin:0;">Atur Pose Proporsional</label>
+                        <button class="btn" style="padding:2px 6px; font-size:10px;" onclick="resetPoseJoints()">Reset Pose</button>
+                    </div>
+                    <div class="slider-item">
+                        <label><span>Sudut Badan / Rotasi</span><span id="lblBodyTurn">0°</span></label>
+                        <input type="range" id="rngBodyTurn" min="-25" max="25" value="0" oninput="updatePoseJoints()">
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                        <div class="slider-item">
+                            <label><span>Lengan Kiri</span><span id="lblArmL">15°</span></label>
+                            <input type="range" id="rngArmL" min="-35" max="75" value="15" oninput="updatePoseJoints()">
+                        </div>
+                        <div class="slider-item">
+                            <label><span>Lengan Kanan</span><span id="lblArmR">15°</span></label>
+                            <input type="range" id="rngArmR" min="-35" max="75" value="15" oninput="updatePoseJoints()">
+                        </div>
+                    </div>
+                    <div class="slider-item">
+                        <label><span>Langkah Kaki / Pinggul</span><span id="lblLegSpread">8°</span></label>
+                        <input type="range" id="rngLegSpread" min="0" max="28" value="8" oninput="updatePoseJoints()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel Upload Foto -->
+            <div id="panelUpload" class="hidden" style="flex-direction:column; gap:10px;">
+                <label for="fileUploadInput" class="upload-box" style="display:block;">
+                    <strong>Klik untuk pilih foto</strong><br>
+                    <small>JPG, PNG, WebP dari perangkat Anda</small>
+                </label>
+                <input id="fileUploadInput" type="file" accept="image/*" class="hidden" onchange="handleUpload(event)">
+                <div id="photoControls" class="hidden" style="flex-direction:column; gap:8px;">
+                    <div class="slider-item">
+                        <label><span>Zoom Foto</span><span id="lblBgScale">100%</span></label>
+                        <input type="range" id="rngBgScale" min="60" max="170" value="100" oninput="updatePhotoAdjust()">
+                    </div>
+                    <div class="slider-item">
+                        <label><span>Geser Atas/Bawah</span><span id="lblBgY">0px</span></label>
+                        <input type="range" id="rngBgY" min="-150" max="150" value="0" oninput="updatePhotoAdjust()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kecerahan & Fitur Wajah Umum (Tanpa Mengubah Struktur Wajah Asli) -->
+            <div style="border-top:1px solid var(--border); padding-top:10px; display:flex; flex-direction:column; gap:7px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label class="field-label" style="margin:0; font-weight:700; color:var(--text);">Kecerahan & Wajah Umum</label>
+                    <button class="btn" style="padding:2px 6px; font-size:10px;" onclick="resetFaceFilters()">Reset</button>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                    <div class="slider-item">
+                        <label><span>Kecerahan</span><span id="lblBright">100%</span></label>
+                        <input type="range" id="rngBright" min="70" max="140" value="100" oninput="updateFaceFilters()">
+                    </div>
+                    <div class="slider-item">
+                        <label><span>Kontras</span><span id="lblContrast">100%</span></label>
+                        <input type="range" id="rngContrast" min="75" max="135" value="100" oninput="updateFaceFilters()">
+                    </div>
+                </div>
+                <div class="slider-item">
+                    <label><span>Tone Cerah Kulit (Warmth)</span><span id="lblWarmth">0%</span></label>
+                    <input type="range" id="rngWarmth" min="-20" max="30" value="0" oninput="updateFaceFilters()">
+                </div>
+                <div>
+                    <label class="field-label">Penyesuaian Wajah Umum (Bentuk Tetap Asli)</label>
+                    <select id="selFaceTouchup" onchange="updateFaceFilters()">
+                        <option value="natural">Asli Apa Adanya (Tanpa Ubah Wajah)</option>
+                        <option value="bright_smooth">Cerah Halus Natural (Soft Glow)</option>
+                        <option value="gentle_smile">Senyum Ramah Natural</option>
+                        <option value="light_makeup">Riasan Natural Ringan (Fresh Look)</option>
+                        <option value="clean_groomed">Tampilan Segar & Rapi (Studio Retouch)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Preset Cepat -->
+            <div style="border-top:1px solid var(--border); padding-top:10px; display:flex; flex-direction:column; gap:6px;">
+                <label class="field-label">Paket Mix & Match Cepat</label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                    <button class="btn" onclick="applyQuickPreset('dinas')">Dinas Kantor</button>
+                    <button class="btn" onclick="applyQuickPreset('adat')">Adat Kebaya</button>
+                    <button class="btn" onclick="applyQuickPreset('casual')">Casual Denim</button>
+                    <button class="btn" onclick="applyQuickPreset('renang')">Renang Pantai</button>
+                    <button class="btn" style="grid-column:span 2;" onclick="applyQuickPreset('santai')">Santai Rumahan</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- KOLOM 2: KANVAS INTERAKTIF -->
+        <section class="panel canvas-box">
+            <div class="panel-title" style="width:100%;">
+                <span id="canvasStatusTitle">Pratinjau Studio</span>
+                <div style="display:flex; gap:6px;">
+                    <button id="btnCompareAi" class="btn hidden" style="padding:3px 8px; font-size:11px; border-color:var(--accent); color:var(--accent);" onclick="toggleCompareAi()">Bandingkan Asli</button>
+                    <button id="btnBackOverlay" class="btn hidden" style="padding:3px 8px; font-size:11px;" onclick="clearAiResult()">Edit Overlay</button>
+                    <button class="btn" style="padding:3px 8px; font-size:11px;" onclick="resetTransform()">Reset Posisi</button>
+                </div>
+            </div>
+
+            <div class="canvas-frame">
+                <canvas id="canvas"></canvas>
+                <div id="compareOverlay" class="compare-overlay hidden">
+                    <div id="compareDivider" class="compare-divider">
+                        <div class="compare-handle">⇄</div>
+                    </div>
+                    <span class="compare-badge" style="left:10px; background:rgba(0,0,0,0.7);">MODEL ASLI</span>
+                    <span class="compare-badge" style="right:10px; background:var(--primary);">HASIL AI (100% IDENTIK)</span>
+                </div>
+                <div id="canvasLoader" class="loader-overlay hidden">
+                    <div class="spinner"></div>
+                    <strong style="font-size:13px; margin-bottom:4px;">AI Fotografer & Stylist Bekerja...</strong>
+                    <small id="loaderDesc" style="font-size:11px; color:var(--muted);">Mengunci 100% wajah asli & postur tubuh model sambil memasang busana</small>
+                </div>
+                <div class="canvas-hint">Seret baju pada layar atau klik tombol AI Mix & Match di bawah</div>
+            </div>
+
+            <!-- Arahan Fotografer & Tombol Eksekusi AI -->
+            <div style="width:100%; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label class="field-label" style="margin:0; font-weight:700; color:var(--accent);">Arahan Fotografer (Director Mode)</label>
+                    <select id="selPhotoStyle" style="width:auto; padding:4px 8px; font-size:11px;">
+                        <option value="Editorial Lookbook Studio, pencahayaan softbox tajam, lensa 85mm">Editorial Lookbook</option>
+                        <option value="Street Fashion Candid siang hari, latar arsitektur kota modern, bokeh alami">Street Fashion</option>
+                        <option value="Potret Formal Eksekutif / Kantor, pencahayaan bersih & berwibawa">Formal Studio</option>
+                        <option value="Golden Hour Pantai Tropis, cahaya matahari senja hangat">Golden Hour Pantai</option>
+                        <option value="Royal Heritage Budaya Nusantara, nuansa klasik megah">Royal Heritage Adat</option>
+                    </select>
+                </div>
+                <input type="text" id="txtDirectorNote" placeholder="Arahan pose & kamera (mis: tatap kamera percaya diri, tangan di saku, angle low-shot)..." value="Pose natural proporsional menghadap kamera, pencahayaan studio seimbang">
+                <button class="btn-ai" onclick="generateAiMixMatch()">✨ AI Mix & Match (Ikuti Pose & Arahan Fotografer)</button>
+            </div>
+
+            <div class="slider-grid">
+                <div class="slider-item">
+                    <label><span>Ukuran</span><span id="lblScale">100%</span></label>
+                    <input type="range" id="rngScale" min="55" max="160" value="100" oninput="updateTransform()">
+                </div>
+                <div class="slider-item">
+                    <label><span>Rotasi</span><span id="lblRot">0°</span></label>
+                    <input type="range" id="rngRot" min="-30" max="30" value="0" oninput="updateTransform()">
+                </div>
+                <div class="slider-item">
+                    <label><span>Lebar Bahu</span><span id="lblWidth">100%</span></label>
+                    <input type="range" id="rngWidth" min="75" max="135" value="100" oninput="updateTransform()">
+                </div>
+            </div>
+        </section>
+
+        <!-- KOLOM 3: LEMARI MIX & MATCH -->
+        <section class="panel">
+            <div class="panel-title">
+                <span>2. Kombinasi Terpasang</span>
+                <button class="btn" style="padding:3px 8px; font-size:11px; color:#fca5a5;" onclick="clearOutfit()">Kosongkan</button>
+            </div>
+
+            <!-- Tray Ringkasan -->
+            <div id="trayGrid" class="tray-grid"></div>
+
+            <!-- Tab Slot -->
+            <div id="slotTabs" class="slot-tabs"></div>
+
+            <!-- Filter Kategori -->
+            <div id="filterPills" class="pills"></div>
+
+            <!-- Warna Slot Aktif -->
+            <div style="background:var(--bg); border:1px solid var(--border); border-radius:9px; padding:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <span id="lblSlotColor" style="font-size:11px; color:var(--muted);">Warna Atasan:</span>
+                    <input type="color" id="nativeColorPicker" onchange="setSlotColor(this.value)" style="width:24px; height:20px; border:none; background:none; cursor:pointer;">
+                </div>
+                <div id="slotColorSwatches" class="swatch-row"></div>
+            </div>
+
+            <!-- Daftar Baju -->
+            <div id="itemsGrid" class="items-grid"></div>
+        </section>
+    </main>
+
+    <script>
+        // 1. DATA KATALOG RINGAN
+        const SLOTS = [
+            { id: 'top', name: 'Atasan' },
+            { id: 'bottom', name: 'Bawahan' },
+            { id: 'outer', name: 'Outer' },
+            { id: 'accessory', name: 'Aksesori' },
+            { id: 'fullset', name: 'Setelan' }
+        ];
+
+        const FILTERS = [
+            { id: 'all', name: 'Semua' },
+            { id: 'dinas', name: 'Dinas' },
+            { id: 'casual', name: 'Casual' },
+            { id: 'adat', name: 'Adat' },
+            { id: 'renang', name: 'Renang' },
+            { id: 'santai', name: 'Santai' }
+        ];
+
+        const WARDROBE = {
+            top: [
+                { id: 't1', name: 'Batik Korpri', tag: 'dinas', color: '#1d4ed8', shape: 'shirt_batik', desc: 'Seragam Korpri biru resmi' },
+                { id: 't2', name: 'Kemeja PDH Dinas', tag: 'dinas', color: '#c2a67d', shape: 'shirt_pocket', desc: 'Kemeja dinas berkerah & saku' },
+                { id: 't3', name: 'Kemeja Putih Formal', tag: 'dinas', color: '#f8fafc', shape: 'shirt_formal', desc: 'Kemeja kerja putih rapi' },
+                { id: 't4', name: 'Kebaya Tradisional', tag: 'adat', color: '#be185d', shape: 'kebaya', desc: 'Kebaya klasik elegan' },
+                { id: 't5', name: 'Kaos Katun Casual', tag: 'casual', color: '#f43f5e', shape: 'tshirt', desc: 'T-shirt harian nyaman' },
+                { id: 't6', name: 'Blouse Satin', tag: 'casual', color: '#8b5cf6', shape: 'blouse', desc: 'Blouse lengan panjang lembut' },
+                { id: 't7', name: 'Rash Guard Renang', tag: 'renang', color: '#0284c7', shape: 'rashguard', desc: 'Baju renang lengan panjang' },
+                { id: 't8', name: 'Atasan Bikini', tag: 'renang', color: '#e11d48', shape: 'bikini', desc: 'Baju renang pantai' },
+                { id: 't9', name: 'Kaos Oversize', tag: 'santai', color: '#10b981', shape: 'oversize', desc: 'Kaos longgar santai' }
+            ],
+            bottom: [
+                { id: 'b1', name: 'Celana Bahan Formal', tag: 'dinas', color: '#18181b', shape: 'pants', desc: 'Celana panjang kain rapi' },
+                { id: 'b2', name: 'Celana Dinas Khaki', tag: 'dinas', color: '#a88b63', shape: 'pants', desc: 'Celana kerja warna khaki' },
+                { id: 'b3', name: 'Rok Kain Batik Jarik', tag: 'adat', color: '#451a03', shape: 'skirt_batik', desc: 'Kain lilit batik sogan' },
+                { id: 'b4', name: 'Rok Tenun Songket', tag: 'adat', color: '#7f1d1d', shape: 'skirt_songket', desc: 'Rok songket motif emas' },
+                { id: 'b5', name: 'Celana Jeans Denim', tag: 'casual', color: '#1e3a8a', shape: 'pants', desc: 'Denim klasik modern' },
+                { id: 'b6', name: 'Celana Cargo Street', tag: 'casual', color: '#3f6212', shape: 'cargo', desc: 'Cargo dengan saku samping' },
+                { id: 'b7', name: 'Celana Renang Pantai', tag: 'renang', color: '#0369a1', shape: 'shorts', desc: 'Celana pendek cepat kering' },
+                { id: 'b8', name: 'Celana Pendek Santai', tag: 'santai', color: '#3f3f46', shape: 'shorts', desc: 'Celana pendek harian' }
+            ],
+            outer: [
+                { id: 'o1', name: 'Jas Blazer Formal', tag: 'dinas', color: '#18181b', shape: 'blazer', desc: 'Jas eksekutif berkerah' },
+                { id: 'o2', name: 'Jaket Denim', tag: 'casual', color: '#2563eb', shape: 'blazer', desc: 'Jaket luar jeans kasual' },
+                { id: 'o3', name: 'Cardigan Rajut', tag: 'santai', color: '#d97706', shape: 'blazer', desc: 'Luaran rajut hangat' },
+                { id: 'o4', name: 'Selendang Ulos Adat', tag: 'adat', color: '#991b1b', shape: 'sash', desc: 'Selendang tenun menyilang' }
+            ],
+            accessory: [
+                { id: 'a1', name: 'Peci Nasional', tag: 'dinas', color: '#18181b', shape: 'peci', desc: 'Peci hitam khas Indonesia' },
+                { id: 'a2', name: 'Hijab Pashmina', tag: 'adat', color: '#e11d48', shape: 'hijab', desc: 'Kerudung modern rapi' },
+                { id: 'a3', name: 'Kacamata Hitam', tag: 'casual', color: '#09090b', shape: 'glasses', desc: 'Kacamata gaya kasual/pantai' },
+                { id: 'a4', name: 'Topi Pantai Lebar', tag: 'renang', color: '#eab308', shape: 'sunhat', desc: 'Topi jerami liburan pantai' },
+                { id: 'a5', name: 'Tas Kerja / Handbag', tag: 'dinas', color: '#78350f', shape: 'bag', desc: 'Tas jinjing elegan' }
+            ],
+            fullset: [
+                { id: 's1', name: 'Setelan Beskap Jawa', tag: 'adat', color: '#18181b', shape: 'full_suit', desc: 'Beskap adat lengkap' },
+                { id: 's2', name: 'Setelan Baju Bodo', tag: 'adat', color: '#dc2626', shape: 'full_dress', desc: 'Busana adat Bugis-Makassar' },
+                { id: 's3', name: 'Baju Kurung Melayu', tag: 'adat', color: '#059669', shape: 'full_dress', desc: 'Setelan Melayu lengkap' },
+                { id: 's4', name: 'Wetsuit Selam', tag: 'renang', color: '#0f172a', shape: 'full_suit', desc: 'Baju selam full-body' },
+                { id: 's5', name: 'One-Piece Swimsuit', tag: 'renang', color: '#0284c7', shape: 'onepiece', desc: 'Baju renang terusan' },
+                { id: 's6', name: 'Setelan Piyama', tag: 'santai', color: '#6366f1', shape: 'full_suit', desc: 'Piyama tidur lembut' },
+                { id: 's7', name: 'Daster Modern', tag: 'santai', color: '#db2777', shape: 'full_dress', desc: 'Daster adem harian' }
+            ]
+        };
+
+        const PALETTE = ['#18181b', '#f8fafc', '#1d4ed8', '#0284c7', '#059669', '#be185d', '#dc2626', '#d97706', '#7c3aed', '#c2a67d'];
+        const SKINS = ['#f5d0b5', '#ecc0a1', '#d89b74', '#b97a52', '#8d5534'];
+        const BACKDROPS = [
+            ['#1e1b4b', '#09090b'],
+            ['#334155', '#0f172a'],
+            ['#fce7f3', '#e0e7ff'],
+            ['#fb923c', '#be185d']
+        ];
+
+        // 2. STATE APLIKASI
+        const state = {
+            mode: 'ai',
+            model: { gender: 'female', skin: '#d89b74', hair: 'bun', pose: 'standing_front', bgIdx: 0 },
+            poseJoints: { turn: 0, armL: 15, armR: 15, legSpread: 8 },
+            faceAdjust: { brightness: 100, contrast: 100, warmth: 0, touchup: 'natural' },
+            photo: { img: null, scale: 1, y: 0 },
+            aiResultImg: null,
+            compareMode: false,
+            compareRatio: 0.5,
+            activeTab: 'top',
+            filter: 'all',
+            equipped: {
+                top: { item: WARDROBE.top[0], color: WARDROBE.top[0].color },
+                bottom: { item: WARDROBE.bottom[0], color: WARDROBE.bottom[0].color },
+                outer: null,
+                accessory: null,
+                fullset: null
+            },
+            transform: { x: 0, y: 24, scale: 1, width: 1, rot: 0 },
+            dragging: false,
+            dragStart: { x: 0, y: 0 }
+        };
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const W = 450, H = 600; // Resolusi ringan & tajam
+        canvas.width = W;
+        canvas.height = H;
+
+        // 3. INISIALISASI
+        window.onload = () => {
+            renderSwatches();
+            renderSlotTabs();
+            renderFilters();
+            renderTray();
+            renderColorSwatches();
+            renderItems();
+            bindDrag();
+            bindCompareDrag();
+            draw();
+        };
+
+        function renderSwatches() {
+            document.getElementById('skinSwatches').innerHTML = SKINS.map(hex =>
+                `<div class="swatch ${state.model.skin === hex ? 'active' : ''}" style="background:${hex}" onclick="setSkin('${hex}')"></div>`
+            ).join('');
+            document.getElementById('bgSwatches').innerHTML = BACKDROPS.map((pair, idx) =>
+                `<div class="swatch ${state.model.bgIdx === idx ? 'active' : ''}" style="background:linear-gradient(135deg,${pair[0]},${pair[1]})" onclick="setBg(${idx})"></div>`
+            ).join('');
+        }
+
+        function renderSlotTabs() {
+            document.getElementById('slotTabs').innerHTML = SLOTS.map(s =>
+                `<button class="slot-tab ${state.activeTab === s.id ? 'active' : ''}" onclick="selectTab('${s.id}')">${s.name}</button>`
+            ).join('');
+        }
+
+        function renderFilters() {
+            document.getElementById('filterPills').innerHTML = FILTERS.map(f =>
+                `<button class="pill ${state.filter === f.id ? 'active' : ''}" onclick="selectFilter('${f.id}')">${f.name}</button>`
+            ).join('');
+        }
+
+        function renderTray() {
+            const tray = document.getElementById('trayGrid');
+            if (state.equipped.fullset) {
+                const fs = state.equipped.fullset;
+                const ac = state.equipped.accessory;
+                tray.innerHTML = `
+                    <div class="tray-slot active" style="grid-column:span 2;" onclick="selectTab('fullset')">
+                        <div style="display:flex;align-items:center;gap:7px;min-width:0;">
+                            <span class="dot" style="background:${fs.color}"></span>
+                            <div class="tray-info"><small>Setelan Lengkap</small><strong>${fs.item.name}</strong></div>
+                        </div>
+                        <button class="btn" style="padding:2px 6px;" onclick="event.stopPropagation();unequip('fullset')">×</button>
+                    </div>
+                    <div class="tray-slot" style="grid-column:span 2;" onclick="selectTab('accessory')">
+                        <div style="display:flex;align-items:center;gap:7px;min-width:0;">
+                            <span class="dot" style="background:${ac ? ac.color : '#27272a'}"></span>
+                            <div class="tray-info"><small>Aksesori</small><strong>${ac ? ac.item.name : 'Kosong'}</strong></div>
+                        </div>
+                        ${ac ? `<button class="btn" style="padding:2px 6px;" onclick="event.stopPropagation();unequip('accessory')">×</button>` : ''}
+                    </div>`;
+                return;
+            }
+
+            tray.innerHTML = ['top', 'bottom', 'outer', 'accessory'].map(k => {
+                const meta = SLOTS.find(s => s.id === k);
+                const eq = state.equipped[k];
+                return `
+                    <div class="tray-slot ${state.activeTab === k ? 'active' : ''}" onclick="selectTab('${k}')">
+                        <div style="display:flex;align-items:center;gap:7px;min-width:0;">
+                            <span class="dot" style="background:${eq ? eq.color : '#27272a'}"></span>
+                            <div class="tray-info"><small>${meta.name}</small><strong>${eq ? eq.item.name : 'Kosong'}</strong></div>
+                        </div>
+                        ${eq ? `<button class="btn" style="padding:2px 6px;" onclick="event.stopPropagation();unequip('${k}')">×</button>` : ''}
+                    </div>`;
+            }).join('');
+        }
+
+        function renderColorSwatches() {
+            const meta = SLOTS.find(s => s.id === state.activeTab);
+            document.getElementById('lblSlotColor').textContent = `Warna ${meta.name}:`;
+            const eq = state.equipped[state.activeTab];
+            const cur = eq ? eq.color : '#1d4ed8';
+            document.getElementById('nativeColorPicker').value = cur;
+            document.getElementById('slotColorSwatches').innerHTML = PALETTE.map(hex =>
+                `<div class="swatch ${cur.toLowerCase() === hex.toLowerCase() ? 'active' : ''}" style="background:${hex}" onclick="setSlotColor('${hex}')"></div>`
+            ).join('');
+        }
+
+        function renderItems() {
+            const list = WARDROBE[state.activeTab] || [];
+            const filtered = state.filter === 'all' ? list : list.filter(i => i.tag === state.filter);
+            const cur = state.equipped[state.activeTab];
+            document.getElementById('itemsGrid').innerHTML = filtered.map(item => {
+                const sel = cur && cur.item.id === item.id;
+                return `
+                    <div class="item-card ${sel ? 'selected' : ''}" onclick="equip('${state.activeTab}','${item.id}')">
+                        <div class="item-top">
+                            <span class="dot" style="background:${item.color}; width:16px; height:16px;"></span>
+                            <span class="item-tag">${item.tag}</span>
+                        </div>
+                        <h4>${item.name}</h4>
+                        <p>${item.desc}</p>
+                    </div>`;
+            }).join('');
+        }
+
+        // 4. INTERAKSI KONTROL
+        function selectTab(id) {
+            state.activeTab = id;
+            renderSlotTabs();
+            renderTray();
+            renderColorSwatches();
+            renderItems();
+        }
+        function selectFilter(id) {
+            state.filter = id;
+            renderFilters();
+            renderItems();
+        }
+        function equip(slot, id) {
+            const item = WARDROBE[slot].find(x => x.id === id);
+            if (!item) return;
+            state.aiResultImg = null;
+            document.getElementById('btnBackOverlay').classList.add('hidden');
+            document.getElementById('canvasStatusTitle').textContent = 'Pratinjau Studio';
+            if (slot === 'fullset') {
+                state.equipped.top = state.equipped.bottom = state.equipped.outer = null;
+                state.equipped.fullset = { item, color: item.color };
+            } else {
+                if (['top', 'bottom', 'outer'].includes(slot)) state.equipped.fullset = null;
+                state.equipped[slot] = { item, color: item.color };
+            }
+            renderTray(); renderColorSwatches(); renderItems(); draw();
+        }
+        function unequip(slot) {
+            state.aiResultImg = null;
+            state.equipped[slot] = null;
+            renderTray(); renderItems(); draw();
+        }
+        function setSlotColor(hex) {
+            if (!state.equipped[state.activeTab]) {
+                equip(state.activeTab, WARDROBE[state.activeTab][0].id);
+            }
+            state.aiResultImg = null;
+            state.equipped[state.activeTab].color = hex;
+            renderTray(); renderColorSwatches(); draw();
+        }
+
+        function setSubjectMode(m) {
+            state.mode = m;
+            state.aiResultImg = null;
+            document.getElementById('btnModeAi').classList.toggle('active', m === 'ai');
+            document.getElementById('btnModeUpload').classList.toggle('active', m === 'upload');
+            const pAi = document.getElementById('panelAi');
+            const pUp = document.getElementById('panelUpload');
+            if (m === 'ai') {
+                pAi.classList.remove('hidden');
+                pAi.style.display = 'flex';
+                pUp.classList.add('hidden');
+            } else {
+                pUp.classList.remove('hidden');
+                pUp.style.display = 'flex';
+                pAi.classList.add('hidden');
+            }
+            draw();
+        }
+        function updateModel() {
+            state.aiResultImg = null;
+            state.model.pose = document.getElementById('selPose').value;
+            state.model.gender = document.getElementById('selGender').value;
+            state.model.hair = document.getElementById('selHair').value;
+            // Set proportional joint defaults per preset pose
+            const presetJoints = {
+                standing_front: { turn: 0, armL: 15, armR: 15, legSpread: 8 },
+                side_casual: { turn: 16, armL: 10, armR: 28, legSpread: 12 },
+                walking_runway: { turn: 8, armL: -18, armR: 25, legSpread: 20 },
+                hand_on_hip: { turn: -8, armL: 58, armR: 12, legSpread: 10 },
+                sitting_casual: { turn: 6, armL: 22, armR: 22, legSpread: 14 }
+            };
+            const j = presetJoints[state.model.pose] || presetJoints.standing_front;
+            state.poseJoints = { ...j };
+            syncPoseSliders();
+            draw();
+        }
+        function updatePoseJoints() {
+            state.aiResultImg = null;
+            state.poseJoints.turn = +document.getElementById('rngBodyTurn').value;
+            state.poseJoints.armL = +document.getElementById('rngArmL').value;
+            state.poseJoints.armR = +document.getElementById('rngArmR').value;
+            state.poseJoints.legSpread = +document.getElementById('rngLegSpread').value;
+            document.getElementById('lblBodyTurn').textContent = state.poseJoints.turn + '°';
+            document.getElementById('lblArmL').textContent = state.poseJoints.armL + '°';
+            document.getElementById('lblArmR').textContent = state.poseJoints.armR + '°';
+            document.getElementById('lblLegSpread').textContent = state.poseJoints.legSpread + '°';
+            draw();
+        }
+        function syncPoseSliders() {
+            document.getElementById('rngBodyTurn').value = state.poseJoints.turn;
+            document.getElementById('rngArmL').value = state.poseJoints.armL;
+            document.getElementById('rngArmR').value = state.poseJoints.armR;
+            document.getElementById('rngLegSpread').value = state.poseJoints.legSpread;
+            document.getElementById('lblBodyTurn').textContent = state.poseJoints.turn + '°';
+            document.getElementById('lblArmL').textContent = state.poseJoints.armL + '°';
+            document.getElementById('lblArmR').textContent = state.poseJoints.armR + '°';
+            document.getElementById('lblLegSpread').textContent = state.poseJoints.legSpread + '°';
+        }
+        function resetPoseJoints() {
+            state.poseJoints = { turn: 0, armL: 15, armR: 15, legSpread: 8 };
+            syncPoseSliders();
+            draw();
+        }
+        function clearAiResult() {
+            state.aiResultImg = null;
+            state.compareMode = false;
+            document.getElementById('compareOverlay').classList.add('hidden');
+            document.getElementById('btnCompareAi').classList.add('hidden');
+            document.getElementById('btnBackOverlay').classList.add('hidden');
+            document.getElementById('canvasStatusTitle').textContent = 'Pratinjau Studio';
+            draw();
+        }
+        function toggleCompareAi() {
+            if (!state.aiResultImg) return;
+            state.compareMode = !state.compareMode;
+            const ov = document.getElementById('compareOverlay');
+            const btn = document.getElementById('btnCompareAi');
+            if (state.compareMode) {
+                ov.classList.remove('hidden');
+                btn.textContent = 'Tutup Bandingkan';
+            } else {
+                ov.classList.add('hidden');
+                btn.textContent = 'Bandingkan Asli';
+            }
+            draw();
+        }
+        function bindCompareDrag() {
+            const ov = document.getElementById('compareOverlay');
+            const div = document.getElementById('compareDivider');
+            let active = false;
+            const update = e => {
+                const r = canvas.getBoundingClientRect();
+                const cx = e.touches ? e.touches[0].clientX : e.clientX;
+                const ratio = Math.max(0.05, Math.min(0.95, (cx - r.left) / r.width));
+                state.compareRatio = ratio;
+                div.style.left = (ratio * 100) + '%';
+                draw();
+            };
+            ov.addEventListener('mousedown', e => { active = true; update(e); });
+            window.addEventListener('mousemove', e => { if (active) update(e); });
+            window.addEventListener('mouseup', () => { active = false; });
+            ov.addEventListener('touchstart', e => { active = true; update(e); }, { passive: true });
+            window.addEventListener('touchmove', e => { if (active) update(e); }, { passive: true });
+            window.addEventListener('touchend', () => { active = false; });
+        }
+        function setSkin(hex) { state.aiResultImg = null; state.model.skin = hex; renderSwatches(); draw(); }
+        function setBg(idx) { state.aiResultImg = null; state.model.bgIdx = idx; renderSwatches(); draw(); }
+
+        function updateFaceFilters() {
+            state.faceAdjust.brightness = +document.getElementById('rngBright').value;
+            state.faceAdjust.contrast = +document.getElementById('rngContrast').value;
+            state.faceAdjust.warmth = +document.getElementById('rngWarmth').value;
+            state.faceAdjust.touchup = document.getElementById('selFaceTouchup').value;
+            document.getElementById('lblBright').textContent = state.faceAdjust.brightness + '%';
+            document.getElementById('lblContrast').textContent = state.faceAdjust.contrast + '%';
+            document.getElementById('lblWarmth').textContent = (state.faceAdjust.warmth > 0 ? '+' : '') + state.faceAdjust.warmth + '%';
+            draw();
+        }
+
+        function resetFaceFilters() {
+            state.faceAdjust = { brightness: 100, contrast: 100, warmth: 0, touchup: 'natural' };
+            document.getElementById('rngBright').value = 100;
+            document.getElementById('rngContrast').value = 100;
+            document.getElementById('rngWarmth').value = 0;
+            document.getElementById('selFaceTouchup').value = 'natural';
+            updateFaceFilters();
+        }
+
+        function randomizeModel() {
+            const genders = ['female', 'male'];
+            const hairs = ['bun', 'long', 'bob', 'hijab', 'short', 'undercut'];
+            const poses = ['standing_front', 'side_casual', 'walking_runway', 'hand_on_hip', 'sitting_casual'];
+            state.model.gender = genders[Math.floor(Math.random() * genders.length)];
+            state.model.hair = hairs[Math.floor(Math.random() * hairs.length)];
+            state.model.pose = poses[Math.floor(Math.random() * poses.length)];
+            state.model.skin = SKINS[Math.floor(Math.random() * SKINS.length)];
+            state.model.bgIdx = Math.floor(Math.random() * BACKDROPS.length);
+            document.getElementById('selGender').value = state.model.gender;
+            document.getElementById('selHair').value = state.model.hair;
+            document.getElementById('selPose').value = state.model.pose;
+            renderSwatches();
+            updateModel();
+        }
+
+        function randomizeAll() {
+            const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+            state.equipped.fullset = null;
+            state.equipped.top = { item: pick(WARDROBE.top), color: pick(PALETTE) };
+            state.equipped.bottom = { item: pick(WARDROBE.bottom), color: pick(PALETTE) };
+            state.equipped.outer = Math.random() > 0.4 ? { item: pick(WARDROBE.outer), color: pick(PALETTE) } : null;
+            state.equipped.accessory = Math.random() > 0.45 ? { item: pick(WARDROBE.accessory), color: pick(PALETTE) } : null;
+            state.aiResultImg = null;
+            renderTray(); renderColorSwatches(); renderItems(); draw();
+            toast('Kombinasi gaya acak diterapkan!');
+        }
+
+        function clearOutfit() {
+            state.aiResultImg = null;
+            state.equipped = { top: null, bottom: null, outer: null, accessory: null, fullset: null };
+            renderTray(); renderItems(); draw();
+        }
+
+        function applyQuickPreset(type) {
+            state.aiResultImg = null;
+            state.equipped.fullset = null;
+            if (type === 'dinas') {
+                state.equipped.top = { item: WARDROBE.top[2], color: '#f8fafc' };
+                state.equipped.bottom = { item: WARDROBE.bottom[0], color: '#18181b' };
+                state.equipped.outer = { item: WARDROBE.outer[0], color: '#1e293b' };
+                state.equipped.accessory = { item: WARDROBE.accessory[4], color: '#78350f' };
+            } else if (type === 'adat') {
+                state.equipped.top = { item: WARDROBE.top[3], color: '#be185d' };
+                state.equipped.bottom = { item: WARDROBE.bottom[2], color: '#451a03' };
+                state.equipped.outer = { item: WARDROBE.outer[3], color: '#991b1b' };
+                state.equipped.accessory = null;
+            } else if (type === 'casual') {
+                state.equipped.top = { item: WARDROBE.top[4], color: '#f8fafc' };
+                state.equipped.bottom = { item: WARDROBE.bottom[4], color: '#1e3a8a' };
+                state.equipped.outer = { item: WARDROBE.outer[1], color: '#2563eb' };
+                state.equipped.accessory = { item: WARDROBE.accessory[2], color: '#09090b' };
+            } else if (type === 'renang') {
+                state.equipped.top = { item: WARDROBE.top[6], color: '#0284c7' };
+                state.equipped.bottom = { item: WARDROBE.bottom[6], color: '#0f172a' };
+                state.equipped.outer = null;
+                state.equipped.accessory = { item: WARDROBE.accessory[3], color: '#eab308' };
+            } else {
+                state.equipped.top = { item: WARDROBE.top[8], color: '#10b981' };
+                state.equipped.bottom = { item: WARDROBE.bottom[7], color: '#27272a' };
+                state.equipped.outer = { item: WARDROBE.outer[2], color: '#d97706' };
+                state.equipped.accessory = null;
+            }
+            renderTray(); renderColorSwatches(); renderItems(); draw();
+        }
+
+        function handleUpload(e) {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                const img = new Image();
+                img.onload = () => {
+                    state.aiResultImg = null;
+                    state.photo = { img, scale: 1, y: 0 };
+                    const ctrl = document.getElementById('photoControls');
+                    ctrl.classList.remove('hidden');
+                    ctrl.style.display = 'flex';
+                    draw();
+                    toast('Foto berhasil dimuat!');
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
+
+        function updatePhotoAdjust() {
+            const s = +document.getElementById('rngBgScale').value;
+            const y = +document.getElementById('rngBgY').value;
+            state.photo.scale = s / 100;
+            state.photo.y = y;
+            document.getElementById('lblBgScale').textContent = s + '%';
+            document.getElementById('lblBgY').textContent = y + 'px';
+            draw();
+        }
+
+        function updateTransform() {
+            const s = +document.getElementById('rngScale').value;
+            const r = +document.getElementById('rngRot').value;
+            const w = +document.getElementById('rngWidth').value;
+            state.transform.scale = s / 100;
+            state.transform.rot = r;
+            state.transform.width = w / 100;
+            document.getElementById('lblScale').textContent = s + '%';
+            document.getElementById('lblRot').textContent = r + '°';
+            document.getElementById('lblWidth').textContent = w + '%';
+            draw();
+        }
+
+        function resetTransform() {
+            state.transform = { x: 0, y: 24, scale: 1, width: 1, rot: 0 };
+            document.getElementById('rngScale').value = 100;
+            document.getElementById('rngRot').value = 0;
+            document.getElementById('rngWidth').value = 100;
+            updateTransform();
+        }
+
+        // 5. MESIN RENDER KANVAS RINGAN (2D VECTOR)
+        function drawCleanSubjectOnly(targetCtx = ctx) {
+            targetCtx.clearRect(0, 0, W, H);
+            const fa = state.faceAdjust;
+            const sepiaPct = Math.max(0, fa.warmth);
+            const saturatePct = 100 + fa.warmth * 0.5;
+            targetCtx.filter = `brightness(${fa.brightness}%) contrast(${fa.contrast}%) sepia(${sepiaPct}%) saturate(${saturatePct}%)`;
+
+            if (state.mode === 'upload') {
+                targetCtx.fillStyle = '#13161b';
+                targetCtx.fillRect(0, 0, W, H);
+                if (state.photo.img) {
+                    const img = state.photo.img;
+                    const asp = img.width / img.height;
+                    let dh = H * state.photo.scale, dw = dh * asp;
+                    if (dw < W * state.photo.scale) { dw = W * state.photo.scale; dh = dw / asp; }
+                    targetCtx.drawImage(img, (W - dw) / 2, (H - dh) / 2 + state.photo.y, dw, dh);
+                } else {
+                    targetCtx.filter = 'none';
+                    targetCtx.fillStyle = '#6b7280';
+                    targetCtx.font = '600 14px system-ui';
+                    targetCtx.textAlign = 'center';
+                    targetCtx.fillText('Unggah foto pada panel kiri', W / 2, H / 2);
+                }
+            } else {
+                drawAvatarModel(targetCtx);
+            }
+            targetCtx.filter = 'none';
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+
+            // Jika hasil AI sudah dirender, tampilkan langsung (atau mode perbandingan belah layar)
+            if (state.aiResultImg) {
+                const img = state.aiResultImg;
+                const asp = img.width / img.height;
+                let dh = H, dw = dh * asp;
+                if (dw < W) { dw = W; dh = dw / asp; }
+
+                if (state.compareMode) {
+                    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(0, 0, W * state.compareRatio, H);
+                    ctx.clip();
+                    drawCleanSubjectOnly(ctx);
+                    ctx.restore();
+                } else {
+                    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+                }
+                return;
+            }
+
+            // A. Gambar Latar & Subjek Bersih
+            drawCleanSubjectOnly(ctx);
+
+            // B. Gambar Layer Pakaian (mengikuti sudut rotasi tubuh proporsional)
+            const bodySkewRad = (state.poseJoints.turn * 0.35 * Math.PI) / 180;
+            ctx.save();
+            ctx.translate(W / 2 + state.transform.x, H / 2 + state.transform.y);
+            ctx.rotate(((state.transform.rot + state.poseJoints.turn * 0.25) * Math.PI) / 180);
+            ctx.transform(1, 0, Math.tan(bodySkewRad) * 0.3, 1, 0, 0);
+            ctx.scale(0.75 * state.transform.scale * state.transform.width, 0.75 * state.transform.scale);
+
+            if (state.equipped.fullset) {
+                drawGarment(state.equipped.fullset.item.shape, state.equipped.fullset.color);
+            } else {
+                if (state.equipped.bottom) drawGarment(state.equipped.bottom.item.shape, state.equipped.bottom.color);
+                if (state.equipped.top) drawGarment(state.equipped.top.item.shape, state.equipped.top.color);
+                if (state.equipped.outer) drawGarment(state.equipped.outer.item.shape, state.equipped.outer.color);
+            }
+            if (state.equipped.accessory) {
+                drawGarment(state.equipped.accessory.item.shape, state.equipped.accessory.color);
+            }
+            ctx.restore();
+        }
+
+        function drawAvatarModel(targetCtx = ctx) {
+            const c = targetCtx;
+            const bg = BACKDROPS[state.model.bgIdx];
+            const g = c.createLinearGradient(0, 0, 0, H);
+            g.addColorStop(0, bg[0]); g.addColorStop(1, bg[1]);
+            c.fillStyle = g;
+            c.fillRect(0, 0, W, H);
+
+            const cx = W / 2, skin = state.model.skin, fem = state.model.gender === 'female', pose = state.model.pose;
+            const joints = state.poseJoints;
+            const turnOffset = joints.turn * 0.45; // Pergeseran perspektif 3/4 proporsional
+
+            // Bayangan lantai
+            c.fillStyle = 'rgba(0,0,0,0.25)';
+            c.beginPath(); c.ellipse(cx, 558, 85, 13, 0, 0, Math.PI * 2); c.fill();
+
+            // Rambut belakang
+            if (state.model.hair === 'long') {
+                c.fillStyle = '#1c1917';
+                rRectOn(c, cx - 40 - turnOffset * 0.3, 98, 80, 130, 30); c.fill();
+            }
+
+            // Leher & Badan
+            c.fillStyle = shade(skin, -15);
+            rRectOn(c, cx - 13, 144, 26, 36, 8); c.fill();
+
+            c.fillStyle = skin;
+            const perspectiveScale = 1 - Math.abs(joints.turn) * 0.005;
+            const sw = (fem ? 55 : 66) * perspectiveScale, ww = (fem ? 36 : 48) * perspectiveScale;
+            c.beginPath();
+            c.moveTo(cx - sw + turnOffset * 0.2, 185); c.lineTo(cx + sw + turnOffset * 0.2, 185);
+            c.lineTo(cx + ww, 326); c.lineTo(cx - ww, 326);
+            c.closePath(); c.fill();
+
+            // Lengan proporsional mengikuti sudut sendi bahu & siku
+            c.lineCap = 'round'; c.lineWidth = fem ? 16 : 20; c.strokeStyle = skin;
+            const radL = (joints.armL * Math.PI) / 180;
+            const radR = (joints.armR * Math.PI) / 180;
+            const shLX = cx - sw + 4 + turnOffset * 0.2, shRX = cx + sw - 4 + turnOffset * 0.2, shY = 192;
+
+            if (pose === 'sitting_casual') {
+                c.fillStyle = '#3f3f46';
+                rRectOn(c, cx - 54, 364, 108, 12, 5); c.fill();
+                c.fillRect(cx - 38, 376, 8, 175); c.fillRect(cx + 30, 376, 8, 175);
+            }
+
+            // Lengan Kiri (dengan sendi siku proporsional)
+            const elbLX = shLX - Math.sin(radL) * 72;
+            const elbLY = shY + Math.cos(radL) * 72;
+            const handLX = joints.armL > 42 ? cx - ww - 4 : elbLX - Math.sin(radL * 0.5) * 66;
+            const handLY = joints.armL > 42 ? 312 : elbLY + Math.cos(radL * 0.5) * 66;
+            c.beginPath(); c.moveTo(shLX, shY); c.lineTo(elbLX, elbLY); c.lineTo(handLX, handLY); c.stroke();
+
+            // Lengan Kanan (dengan sendi siku proporsional)
+            const elbRX = shRX + Math.sin(radR) * 72;
+            const elbRY = shY + Math.cos(radR) * 72;
+            const handRX = joints.armR > 42 ? cx + ww + 4 : elbRX + Math.sin(radR * 0.5) * 66;
+            const handRY = joints.armR > 42 ? 312 : elbRY + Math.cos(radR * 0.5) * 66;
+            c.beginPath(); c.moveTo(shRX, shY); c.lineTo(elbRX, elbRY); c.lineTo(handRX, handRY); c.stroke();
+
+            // Kaki proporsional mengikuti bukaan langkah pinggul
+            c.lineWidth = fem ? 20 : 23; c.strokeStyle = skin;
+            const spreadRad = (joints.legSpread * Math.PI) / 180;
+            const hipLX = cx - 18, hipRX = cx + 18, hipY = 326;
+            if (pose === 'sitting_casual') {
+                c.beginPath(); c.moveTo(hipLX, hipY); c.lineTo(cx - 32, 375); c.lineTo(cx - 32, 540); c.stroke();
+                c.beginPath(); c.moveTo(hipRX, hipY); c.lineTo(cx + 32, 375); c.lineTo(cx + 32, 540); c.stroke();
+            } else {
+                const footLX = hipLX - Math.sin(spreadRad) * 145;
+                const footRX = hipRX + Math.sin(spreadRad) * 145;
+                c.beginPath(); c.moveTo(hipLX, hipY); c.lineTo(footLX, 545); c.stroke();
+                c.beginPath(); c.moveTo(hipRX, hipY); c.lineTo(footRX, 545); c.stroke();
+            }
+
+            // Kepala & Wajah (mengikuti arah hadap & ekspresi wajah umum)
+            c.fillStyle = skin;
+            c.beginPath(); c.ellipse(cx + turnOffset * 0.15, 117, 31, 37, 0, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#18181b';
+            const eyeShift = turnOffset * 0.35;
+            c.beginPath(); c.arc(cx - 11 + eyeShift, 114, 2.5, 0, Math.PI * 2); c.arc(cx + 11 + eyeShift, 114, 2.5, 0, Math.PI * 2); c.fill();
+
+            // Riasan pipi halus jika memilih riasan ringan
+            if (state.faceAdjust.touchup === 'light_makeup' || state.faceAdjust.touchup === 'bright_smooth') {
+                c.fillStyle = 'rgba(244, 114, 182, 0.22)';
+                c.beginPath();
+                c.arc(cx - 15 + eyeShift, 122, 5.5, 0, Math.PI * 2);
+                c.arc(cx + 15 + eyeShift, 122, 5.5, 0, Math.PI * 2);
+                c.fill();
+            }
+
+            c.strokeStyle = state.faceAdjust.touchup === 'light_makeup' ? '#be185d' : '#9f5848';
+            c.lineWidth = 1.8;
+            c.beginPath();
+            if (state.faceAdjust.touchup === 'gentle_smile') {
+                c.arc(cx + eyeShift, 127, 9, 0.1 * Math.PI, 0.9 * Math.PI);
+            } else {
+                c.arc(cx + eyeShift, 129, 7, 0.15 * Math.PI, 0.85 * Math.PI);
+            }
+            c.stroke();
+
+            // Rambut / Hijab
+            const h = state.model.hair;
+            if (h === 'hijab') {
+                c.fillStyle = '#334155';
+                c.beginPath(); c.arc(cx + turnOffset * 0.15, 122, 40, Math.PI * 0.85, Math.PI * 2.15);
+                c.quadraticCurveTo(cx + 48, 175, cx + 32, 205);
+                c.quadraticCurveTo(cx, 215, cx - 32, 205);
+                c.quadraticCurveTo(cx - 48, 175, cx - 38, 135);
+                c.fill();
+            } else {
+                c.fillStyle = '#1c1917';
+                if (h === 'bun') { c.beginPath(); c.arc(cx - turnOffset * 0.2, 76, 18, 0, Math.PI * 2); c.fill(); }
+                c.beginPath(); c.arc(cx + turnOffset * 0.15, 114, 36, Math.PI * 0.95, Math.PI * 2.05); c.fill();
+            }
+        }
+
+        function drawGarment(shape, color) {
+            ctx.save();
+            ctx.fillStyle = color;
+            ctx.strokeStyle = shade(color, -25);
+            ctx.lineWidth = 2;
+
+            if (['pants', 'cargo'].includes(shape)) {
+                ctx.beginPath();
+                ctx.moveTo(-60, 40); ctx.lineTo(60, 40); ctx.lineTo(66, 330); ctx.lineTo(14, 330);
+                ctx.lineTo(0, 115); ctx.lineTo(-14, 330); ctx.lineTo(-66, 330);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+            } else if (['skirt_batik', 'skirt_songket'].includes(shape)) {
+                ctx.beginPath();
+                ctx.moveTo(-62, 40); ctx.lineTo(62, 40); ctx.lineTo(74, 325); ctx.lineTo(-74, 325);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+                ctx.strokeStyle = shape === 'skirt_songket' ? 'rgba(245,158,11,0.55)' : 'rgba(255,255,255,0.25)';
+                for (let y = 75; y <= 300; y += 38) { ctx.beginPath(); ctx.moveTo(-64, y); ctx.lineTo(64, y); ctx.stroke(); }
+            } else if (shape === 'shorts') {
+                ctx.beginPath();
+                ctx.moveTo(-60, 40); ctx.lineTo(60, 40); ctx.lineTo(64, 155); ctx.lineTo(10, 155);
+                ctx.lineTo(0, 105); ctx.lineTo(-10, 155); ctx.lineTo(-64, 155);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+            } else if (['shirt_batik', 'shirt_pocket', 'shirt_formal', 'blouse', 'kebaya', 'rashguard'].includes(shape)) {
+                const bottomY = shape === 'kebaya' ? 82 : 48;
+                ctx.beginPath();
+                ctx.moveTo(-36, -162); ctx.lineTo(36, -162); ctx.lineTo(100, -135); ctx.lineTo(124, 24);
+                ctx.lineTo(94, 28); ctx.lineTo(74, -80); ctx.lineTo(64, bottomY); ctx.lineTo(-64, bottomY);
+                ctx.lineTo(-74, -80); ctx.lineTo(-94, 28); ctx.lineTo(-124, 24); ctx.lineTo(-100, -135);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+                if (shape.startsWith('shirt') || shape === 'kebaya') drawCollar();
+            } else if (['tshirt', 'oversize'].includes(shape)) {
+                const ex = shape === 'oversize' ? 14 : 0;
+                ctx.beginPath();
+                ctx.moveTo(-36, -160); ctx.quadraticCurveTo(0, -135, 36, -160);
+                ctx.lineTo(96 + ex, -134); ctx.lineTo(116 + ex, -48); ctx.lineTo(84 + ex, -36);
+                ctx.lineTo(68 + ex, -82); ctx.lineTo(62 + ex, 48 + ex); ctx.lineTo(-62 - ex, 48 + ex);
+                ctx.lineTo(-68 - ex, -82); ctx.lineTo(-84 - ex, -36); ctx.lineTo(-116 - ex, -48);
+                ctx.lineTo(-96 - ex, -134); ctx.closePath(); ctx.fill(); ctx.stroke();
+            } else if (shape === 'bikini') {
+                ctx.beginPath();
+                ctx.moveTo(-48, -108); ctx.lineTo(-10, -108); ctx.lineTo(-6, -68); ctx.lineTo(-54, -68); ctx.closePath();
+                ctx.moveTo(48, -108); ctx.lineTo(10, -108); ctx.lineTo(6, -68); ctx.lineTo(54, -68); ctx.closePath();
+                ctx.fill(); ctx.stroke();
+            } else if (shape === 'blazer') {
+                ctx.beginPath();
+                ctx.moveTo(-42, -164); ctx.lineTo(-12, -164); ctx.lineTo(-12, 68); ctx.lineTo(-68, 68);
+                ctx.lineTo(-78, -80); ctx.lineTo(-96, 32); ctx.lineTo(-126, 26); ctx.lineTo(-102, -136); ctx.closePath();
+                ctx.moveTo(42, -164); ctx.lineTo(12, -164); ctx.lineTo(12, 68); ctx.lineTo(68, 68);
+                ctx.lineTo(78, -80); ctx.lineTo(96, 32); ctx.lineTo(126, 26); ctx.lineTo(102, -136); ctx.closePath();
+                ctx.fill(); ctx.stroke();
+            } else if (shape === 'sash') {
+                ctx.beginPath();
+                ctx.moveTo(-78, -155); ctx.lineTo(-42, -155); ctx.lineTo(74, 85); ctx.lineTo(38, 85);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+            } else if (['full_suit', 'full_dress', 'onepiece'].includes(shape)) {
+                const len = shape === 'onepiece' ? 130 : 320;
+                ctx.beginPath();
+                ctx.moveTo(-36, -162); ctx.lineTo(36, -162); ctx.lineTo(98, -135); ctx.lineTo(116, 15);
+                ctx.lineTo(88, 20); ctx.lineTo(70, -80); ctx.lineTo(66, len); ctx.lineTo(-66, len);
+                ctx.lineTo(-70, -80); ctx.lineTo(-88, 20); ctx.lineTo(-116, 15); ctx.lineTo(-98, -135);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+            } else if (shape === 'peci') {
+                rRect(-44, -312, 88, 34, 8); ctx.fill(); ctx.stroke();
+            } else if (shape === 'hijab') {
+                ctx.beginPath(); ctx.arc(0, -264, 58, Math.PI * 0.85, Math.PI * 2.15);
+                ctx.quadraticCurveTo(68, -185, 48, -142); ctx.quadraticCurveTo(0, -124, -48, -142);
+                ctx.quadraticCurveTo(-68, -185, -54, -245); ctx.fill(); ctx.stroke();
+            } else if (shape === 'glasses') {
+                rRect(-36, -276, 30, 16, 4); ctx.fill();
+                rRect(6, -276, 30, 16, 4); ctx.fill();
+            } else if (shape === 'sunhat') {
+                ctx.beginPath(); ctx.ellipse(0, -296, 95, 18, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, -296, 46, Math.PI, Math.PI * 2); ctx.fill(); ctx.stroke();
+            } else if (shape === 'bag') {
+                rRect(88, 35, 48, 42, 8); ctx.fill(); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawCollar() {
+            ctx.fillStyle = 'rgba(255,255,255,0.25)';
+            ctx.beginPath();
+            ctx.moveTo(-36, -162); ctx.lineTo(-14, -125); ctx.lineTo(0, -142);
+            ctx.lineTo(14, -125); ctx.lineTo(36, -162); ctx.closePath(); ctx.fill();
+        }
+
+        // 6. DRAG & UTILITAS
+        function bindDrag() {
+            const getPos = e => {
+                const r = canvas.getBoundingClientRect();
+                const cx = e.touches ? e.touches[0].clientX : e.clientX;
+                const cy = e.touches ? e.touches[0].clientY : e.clientY;
+                return { x: (cx - r.left) * (W / r.width), y: (cy - r.top) * (H / r.height) };
+            };
+            const down = e => {
+                const p = getPos(e);
+                state.dragging = true;
+                state.dragStart = { x: p.x - state.transform.x, y: p.y - state.transform.y };
+            };
+            const move = e => {
+                if (!state.dragging) return;
+                e.preventDefault();
+                const p = getPos(e);
+                state.transform.x = p.x - state.dragStart.x;
+                state.transform.y = p.y - state.dragStart.y;
+                draw();
+            };
+            const up = () => { state.dragging = false; };
+
+            canvas.addEventListener('mousedown', down);
+            window.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', up);
+            canvas.addEventListener('touchstart', down, { passive: false });
+            window.addEventListener('touchmove', move, { passive: false });
+            window.addEventListener('touchend', up);
+        }
+
+        function downloadPNG() {
+            const a = document.createElement('a');
+            a.download = `outfit-mixmatch-${Date.now()}.png`;
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+            toast('Gambar PNG berhasil diunduh!');
+        }
+
+        // 7. GENERATOR AI MIX & MATCH SESUAI POSE & ARAHAN FOTOGRAFER
+        async function generateAiMixMatch() {
+            const items = [];
+            if (state.equipped.fullset) {
+                items.push(`Setelan lengkap: ${state.equipped.fullset.item.name} (${state.equipped.fullset.item.desc}) warna ${state.equipped.fullset.color}`);
+            } else {
+                if (state.equipped.top) items.push(`Atasan: ${state.equipped.top.item.name} (${state.equipped.top.item.desc}) warna ${state.equipped.top.color}`);
+                if (state.equipped.bottom) items.push(`Bawahan: ${state.equipped.bottom.item.name} (${state.equipped.bottom.item.desc}) warna ${state.equipped.bottom.color}`);
+                if (state.equipped.outer) items.push(`Outer / Luaran dipakai terbuka: ${state.equipped.outer.item.name} (${state.equipped.outer.item.desc}) warna ${state.equipped.outer.color}`);
+            }
+            if (state.equipped.accessory) {
+                items.push(`Aksesori: ${state.equipped.accessory.item.name} (${state.equipped.accessory.item.desc}) warna ${state.equipped.accessory.color}`);
+            }
+
+            if (items.length === 0) {
+                toast('Pilih minimal 1 item pakaian terlebih dahulu!');
+                return;
+            }
+            if (state.mode === 'upload' && !state.photo.img) {
+                toast('Unggah foto model terlebih dahulu!');
+                return;
+            }
+
+            const loader = document.getElementById('canvasLoader');
+            const photoStyle = document.getElementById('selPhotoStyle').value;
+            const directorNote = document.getElementById('txtDirectorNote').value.trim();
+            loader.classList.remove('hidden');
+
+            try {
+                // Render kanvas subjek BERSIH (tanpa overlay vektor kaku yang menutupi posisi sendi/postur tubuh asli)
+                const cleanCanvas = document.createElement('canvas');
+                cleanCanvas.width = W;
+                cleanCanvas.height = H;
+                const cleanCtx = cleanCanvas.getContext('2d');
+                drawCleanSubjectOnly(cleanCtx);
+                const base64CleanSubject = cleanCanvas.toDataURL('image/png').split(',')[1];
+
+                const j = state.poseJoints;
+                const touchupMap = {
+                    natural: 'Keep the face 100% identical to the original subject without changing facial structure, features, eyes, nose, lips, or expression.',
+                    bright_smooth: 'Keep the exact original facial structure, bone structure, and identity 100% unchanged, only apply subtle natural skin brightening and soft studio lighting on the face.',
+                    gentle_smile: 'Keep the exact original facial structure, eyes, nose, and identity 100% unchanged, with only a very subtle natural gentle smile.',
+                    light_makeup: 'Keep the exact original facial structure and identity 100% unchanged, adding only subtle natural everyday makeup and fresh studio skin tone.',
+                    clean_groomed: 'Keep the exact original facial structure and identity 100% unchanged, with clean well-lit editorial portrait retouching.'
+                };
+                const faceInstruction = touchupMap[state.faceAdjust.touchup] || touchupMap.natural;
+
+                const poseDescriptions = {
+                    standing_front: 'standing straight facing forward',
+                    side_casual: 'casual relaxed 3/4 side stance',
+                    walking_runway: 'mid-stride fashion runway walking posture',
+                    hand_on_hip: 'standing confidently with hand resting on hip',
+                    sitting_casual: 'sitting casually on a studio stool'
+                };
+                const poseText = poseDescriptions[state.model.pose] || 'standing natural posture';
+
+                const poseSpec = state.mode === 'ai'
+                    ? `Exact body posture to preserve 100%: ${poseText}, body rotation ${j.turn} degrees, left arm angle ${j.armL} degrees, right arm angle ${j.armR} degrees, leg stance spread ${j.legSpread} degrees, subject gender: ${state.model.gender === 'female' ? 'Indonesian woman' : 'Indonesian man'}.`
+                    : `STRICT 100% IDENTITY & POSTURE LOCK: Preserve the exact person from the uploaded image with ZERO changes to their face shape, facial landmarks, eyes, nose, mouth, skin tone, hair, exact body posture, limb angles, hand positions, body proportions, and background environment.`;
+
+                const prompt = `High-precision photorealistic virtual try-on image editing. Edit ONLY the clothing on the exact subject in the input image so they are wearing this exact mix-and-match outfit: [${items.join('; ')}].
+${poseSpec}
+100% Facial & Anatomical Preservation Rules:
+- ${faceInstruction}
+- Do NOT alter, warp, slim, widen, or reposition the head, neck, shoulders, arms, hands, torso, or legs. Every limb and joint must remain in the exact pixel coordinates and posture shown in the input image.
+- Tailor and drape the specified garments naturally over the existing body posture with realistic fabric folds, seams, and shadows matching the subject's exact position.
+- Image tone & lighting: brightness ${state.faceAdjust.brightness}%, contrast ${state.faceAdjust.contrast}%, photography style: ${photoStyle}. Additional subtle lighting/camera note (without changing pose or face): "${directorNote}".`;
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{
+                        role: 'user',
+                        parts: [
+                            { text: prompt },
+                            { inlineData: { mimeType: 'image/png', data: base64CleanSubject } }
+                        ]
+                    }],
+                    generationConfig: {
+                        responseModalities: ['TEXT', 'IMAGE'],
+                        imageConfig: { aspectRatio: "3:4" }
+                    }
+                };
+
+                let result = null, delay = 1000;
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    const res = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) { result = await res.json(); break; }
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+
+                const part = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+                if (part?.inlineData?.data) {
+                    const img = new Image();
+                    img.onload = () => {
+                        state.aiResultImg = img;
+                        state.compareMode = false;
+                        document.getElementById('compareOverlay').classList.add('hidden');
+                        const btnCmp = document.getElementById('btnCompareAi');
+                        btnCmp.classList.remove('hidden');
+                        btnCmp.textContent = 'Bandingkan Asli';
+                        document.getElementById('btnBackOverlay').classList.remove('hidden');
+                        document.getElementById('canvasStatusTitle').textContent = 'Hasil AI (100% Presisi Postur & Wajah)';
+                        loader.classList.add('hidden');
+                        draw();
+                        toast('✨ Selesai! Pakaian terpasang presisi mengikuti postur & wajah asli.');
+                    };
+                    img.src = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+                } else {
+                    throw new Error('No image generated');
+                }
+            } catch (err) {
+                loader.classList.add('hidden');
+                toast('Gagal memuat render AI, menampilkan pratinjau proporsional.');
+            }
+        }
+
+        function toast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 2400);
+        }
+
+        function shade(col, pct) {
+            const num = parseInt(col.replace('#', ''), 16), amt = Math.round(2.55 * pct);
+            const R = (num >> 16) + amt, B = ((num >> 8) & 0x00FF) + amt, G = (num & 0x0000FF) + amt;
+            return '#' + (0x1000000 + (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+                (B < 255 ? (B < 1 ? 0 : B) : 255) * 0x100 + (G < 255 ? (G < 1 ? 0 : G) : 255)).toString(16).slice(1);
+        }
+
+        function rRect(x, y, w, h, r) {
+            rRectOn(ctx, x, y, w, h, r);
+        }
+        function rRectOn(c, x, y, w, h, r) {
+            c.beginPath();
+            c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r);
+            c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r);
+            c.arcTo(x, y, x + w, y, r); c.closePath();
+        }
+    </script>
+</body>
+</html>

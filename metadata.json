@@ -1,0 +1,6 @@
+{
+  "name": "BatikFit Nusantara",
+  "description": "Studio virtual try-on fitting busana batik Nusantara dengan ragam motif otentik, unggah foto model, dan penyesuaian pose otomatis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
