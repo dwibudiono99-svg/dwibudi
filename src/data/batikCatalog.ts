@@ -46,7 +46,7 @@ export interface BatikColorMode {
     primary: string;
     secondary: string;
     accent: string;
-  } | null; // null means use motif's authentic original palette
+  } | null;
 }
 
 export interface GarmentItem {
@@ -79,6 +79,25 @@ export interface GarmentItem {
   desc: string;
 }
 
+export interface PosePoint {
+  x: number; // normalized 0..1
+  y: number; // normalized 0..1
+}
+
+export interface PoseSkeleton {
+  neck: PosePoint;
+  leftShoulder: PosePoint; // anatomical left (viewer right when facing camera)
+  rightShoulder: PosePoint; // anatomical right (viewer left when facing camera)
+  leftElbow: PosePoint;
+  rightElbow: PosePoint;
+  leftWrist: PosePoint;
+  rightWrist: PosePoint;
+  leftHip: PosePoint;
+  rightHip: PosePoint;
+  leftAnkle: PosePoint;
+  rightAnkle: PosePoint;
+}
+
 export interface DetectedPose {
   torsoCenterX: number;
   torsoCenterY: number;
@@ -88,6 +107,7 @@ export interface DetectedPose {
   bodyTurnDeg: number;
   poseLabel: string;
   detectedSubjectType: string;
+  skeleton: PoseSkeleton;
 }
 
 export interface SampleStudioModel {
@@ -98,6 +118,20 @@ export interface SampleStudioModel {
   defaultPose: DetectedPose;
   recommendedSlotCutId: string;
 }
+
+export const DEFAULT_UPRIGHT_SKELETON: PoseSkeleton = {
+  neck: { x: 0.5, y: 0.21 },
+  leftShoulder: { x: 0.61, y: 0.24 },
+  rightShoulder: { x: 0.39, y: 0.24 },
+  leftElbow: { x: 0.65, y: 0.37 },
+  rightElbow: { x: 0.35, y: 0.37 },
+  leftWrist: { x: 0.66, y: 0.49 },
+  rightWrist: { x: 0.34, y: 0.49 },
+  leftHip: { x: 0.57, y: 0.49 },
+  rightHip: { x: 0.43, y: 0.49 },
+  leftAnkle: { x: 0.56, y: 0.87 },
+  rightAnkle: { x: 0.44, y: 0.87 },
+};
 
 export const BATIK_REGIONS: Array<{ id: BatikRegion; label: string }> = [
   { id: "all", label: "Semua" },
@@ -548,12 +582,25 @@ export const SAMPLE_STUDIO_MODELS: SampleStudioModel[] = [
     defaultPose: {
       torsoCenterX: 0.515,
       torsoCenterY: 0.34,
-      shoulderWidthRatio: 0.28,
+      shoulderWidthRatio: 0.27,
       torsoHeightRatio: 0.27,
       tiltDeg: 2,
       bodyTurnDeg: 10,
       poseLabel: "Pose 3/4 Tangan di Saku",
       detectedSubjectType: "pria",
+      skeleton: {
+        neck: { x: 0.525, y: 0.21 },
+        leftShoulder: { x: 0.635, y: 0.24 },
+        rightShoulder: { x: 0.4, y: 0.24 },
+        leftElbow: { x: 0.67, y: 0.38 },
+        rightElbow: { x: 0.375, y: 0.38 },
+        leftWrist: { x: 0.61, y: 0.505 },
+        rightWrist: { x: 0.365, y: 0.535 },
+        leftHip: { x: 0.59, y: 0.5 },
+        rightHip: { x: 0.42, y: 0.495 },
+        leftAnkle: { x: 0.59, y: 0.89 },
+        rightAnkle: { x: 0.435, y: 0.87 },
+      },
     },
   },
   {
@@ -565,12 +612,25 @@ export const SAMPLE_STUDIO_MODELS: SampleStudioModel[] = [
     defaultPose: {
       torsoCenterX: 0.495,
       torsoCenterY: 0.345,
-      shoulderWidthRatio: 0.245,
-      torsoHeightRatio: 0.255,
+      shoulderWidthRatio: 0.24,
+      torsoHeightRatio: 0.25,
       tiltDeg: -1,
       bodyTurnDeg: 4,
       poseLabel: "Berdiri Tegak Tangan di Pinggang",
       detectedSubjectType: "wanita",
+      skeleton: {
+        neck: { x: 0.495, y: 0.215 },
+        leftShoulder: { x: 0.605, y: 0.245 },
+        rightShoulder: { x: 0.39, y: 0.25 },
+        leftElbow: { x: 0.66, y: 0.38 },
+        rightElbow: { x: 0.355, y: 0.385 },
+        leftWrist: { x: 0.535, y: 0.445 },
+        rightWrist: { x: 0.355, y: 0.525 },
+        leftHip: { x: 0.57, y: 0.49 },
+        rightHip: { x: 0.41, y: 0.49 },
+        leftAnkle: { x: 0.635, y: 0.895 },
+        rightAnkle: { x: 0.495, y: 0.88 },
+      },
     },
   },
   {
@@ -582,12 +642,25 @@ export const SAMPLE_STUDIO_MODELS: SampleStudioModel[] = [
     defaultPose: {
       torsoCenterX: 0.495,
       torsoCenterY: 0.37,
-      shoulderWidthRatio: 0.265,
-      torsoHeightRatio: 0.3,
+      shoulderWidthRatio: 0.26,
+      torsoHeightRatio: 0.29,
       tiltDeg: 0,
       bodyTurnDeg: -4,
       poseLabel: "Berdiri Tegak Modest",
       detectedSubjectType: "berhijab",
+      skeleton: {
+        neck: { x: 0.5, y: 0.215 },
+        leftShoulder: { x: 0.625, y: 0.245 },
+        rightShoulder: { x: 0.375, y: 0.245 },
+        leftElbow: { x: 0.65, y: 0.395 },
+        rightElbow: { x: 0.345, y: 0.395 },
+        leftWrist: { x: 0.62, y: 0.525 },
+        rightWrist: { x: 0.355, y: 0.545 },
+        leftHip: { x: 0.59, y: 0.515 },
+        rightHip: { x: 0.405, y: 0.515 },
+        leftAnkle: { x: 0.525, y: 0.895 },
+        rightAnkle: { x: 0.345, y: 0.895 },
+      },
     },
   },
 ];

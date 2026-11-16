@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   BATIK_COLOR_MODES,
   BATIK_MOTIFS,
+  DEFAULT_UPRIGHT_SKELETON,
   GARMENT_ITEMS,
   SAMPLE_STUDIO_MODELS,
   type BatikColorMode,
@@ -10,6 +11,7 @@ import {
   type DetectedPose,
   type GarmentItem,
   type GarmentSlot,
+  type PoseSkeleton,
 } from "./data/batikCatalog";
 import { renderBatikSwatchDataUrl } from "./utils/batikPatternEngine";
 import { TopBar } from "./components/TopBar";
@@ -27,31 +29,20 @@ import {
   type EquippedMap,
 } from "./components/BatikWardrobePanel";
 import {
-  CANVAS_H,
-  CANVAS_W,
   StudioCanvas,
   type GarmentTransform,
   type StudioCanvasHandle,
 } from "./components/StudioCanvas";
 import { NusantaraGuideSection } from "./components/NusantaraGuideSection";
 
-function poseToTransform(pose: DetectedPose): GarmentTransform {
-  const x = Math.round((pose.torsoCenterX - 0.5) * CANVAS_W);
-  const y = Math.round((pose.torsoCenterY - 0.5) * CANVAS_H);
-  // Base garment silhouette width at scale=1 * 0.74 is ~150px wide across shoulders
-  const targetShoulderPx = pose.shoulderWidthRatio * CANVAS_W;
-  const baseWidthScale = Math.max(0.65, Math.min(1.45, targetShoulderPx / 120));
-  const targetTorsoPx = pose.torsoHeightRatio * CANVAS_H;
-  const baseScale = Math.max(0.65, Math.min(1.5, targetTorsoPx / 160));
-  return {
-    x,
-    y,
-    scale: Number(baseScale.toFixed(2)),
-    width: Number((baseWidthScale / baseScale).toFixed(2)),
-    rot: Math.round(pose.tiltDeg),
-    patternScale: 0.62,
-  };
-}
+const DEFAULT_SKELETAL_TRANSFORM: GarmentTransform = {
+  x: 0,
+  y: 0,
+  scale: 1,
+  width: 1,
+  rot: 0,
+  patternScale: 0.6,
+};
 
 export default function App() {
   const canvasRef = useRef<StudioCanvasHandle | null>(null);
@@ -69,6 +60,10 @@ export default function App() {
   const [detectedPose, setDetectedPose] = useState<DetectedPose | null>(
     SAMPLE_STUDIO_MODELS[0].defaultPose
   );
+  const [activeSkeleton, setActiveSkeleton] = useState<PoseSkeleton>(
+    SAMPLE_STUDIO_MODELS[0].defaultPose.skeleton
+  );
+  const [showSkeleton, setShowSkeleton] = useState(false);
   const [isDetectingPose, setIsDetectingPose] = useState(false);
 
   const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>({
@@ -95,7 +90,7 @@ export default function App() {
   const [activeSlot, setActiveSlot] = useState<GarmentSlot>("top");
   const [equipped, setEquipped] = useState<EquippedMap>({
     top: GARMENT_ITEMS.top[0], // Kemeja Batik Lengan Panjang
-    bottom: GARMENT_ITEMS.bottom[3], // Celana Bahan Hitam Polos
+    bottom: null,
     outer: null,
     fullset: null,
     accessory: null,
@@ -110,8 +105,8 @@ export default function App() {
   const [autoFitOnMotifClick, setAutoFitOnMotifClick] = useState(false);
 
   // Canvas & AI State
-  const [transform, setTransform] = useState<GarmentTransform>(() =>
-    poseToTransform(SAMPLE_STUDIO_MODELS[0].defaultPose)
+  const [transform, setTransform] = useState<GarmentTransform>(
+    DEFAULT_SKELETAL_TRANSFORM
   );
   const [showOverlay2D, setShowOverlay2D] = useState(true);
   const [aiResultUrl, setAiResultUrl] = useState<string | null>(null);
@@ -131,7 +126,7 @@ export default function App() {
 
   useEffect(() => {
     if (!toastMessage) return;
-    const t = setTimeout(() => setToastMessage(null), 3200);
+    const t = setTimeout(() => setToastMessage(null), 3600);
     return () => clearTimeout(t);
   }, [toastMessage]);
 
@@ -152,25 +147,29 @@ export default function App() {
         });
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.error || "Gagal mendeteksi pose foto.");
+          throw new Error(data.error || "Gagal mendeteksi kerangka pose foto.");
         }
         if (data.pose) {
           const pose = data.pose as DetectedPose;
           setDetectedPose(pose);
-          setTransform(poseToTransform(pose));
+          if (pose.skeleton) {
+            setActiveSkeleton(pose.skeleton);
+          }
+          setTransform(DEFAULT_SKELETAL_TRANSFORM);
           setPoseJoints((prev) => ({
             ...prev,
             turn: Math.round(pose.bodyTurnDeg),
           }));
           showToast(
-            `Pose terdeteksi: ${pose.poseLabel}. Busana disesuaikan otomatis.`
+            `Kerangka pose terdeteksi: ${pose.poseLabel}. Busana menyesuaikan bahu & lengan foto.`
           );
         }
       } catch (err: unknown) {
         const msg =
           err instanceof Error
             ? err.message
-            : "Deteksi pose tidak tersedia, atur posisi secara manual.";
+            : "Deteksi pose otomatis gagal. Aktifkan Kerangka Pose untuk menyesuaikan titik sendi secara manual.";
+        setShowSkeleton(true);
         showToast(msg);
       } finally {
         setIsDetectingPose(false);
@@ -189,8 +188,9 @@ export default function App() {
       setAiResultUrl(null);
       setPhotoScale(100);
       setPhotoOffsetY(0);
+      setActiveSkeleton(DEFAULT_UPRIGHT_SKELETON);
+      setTransform(DEFAULT_SKELETAL_TRANSFORM);
       setShowOverlay2D(true);
-      // Automatically detect pose so Batik garment snaps to user photo pose
       setTimeout(() => {
         const cleanDataUrl =
           canvasRef.current?.getCleanSubjectDataUrl() || dataUrl;
@@ -207,12 +207,12 @@ export default function App() {
     setSubjectMode("studio");
     setAiResultUrl(null);
     setDetectedPose(found.defaultPose);
-    setTransform(poseToTransform(found.defaultPose));
+    setActiveSkeleton(found.defaultPose.skeleton);
+    setTransform(DEFAULT_SKELETAL_TRANSFORM);
     setPoseJoints((prev) => ({
       ...prev,
       turn: found.defaultPose.bodyTurnDeg,
     }));
-    // Recommend matching cut for that model
     const recommendedTop = GARMENT_ITEMS.top.find(
       (i) => i.id === found.recommendedSlotCutId
     );
@@ -223,7 +223,7 @@ export default function App() {
         top: recommendedTop,
       }));
     }
-    showToast(`Model ${found.name} aktif dengan pose terkalibrasi.`);
+    showToast(`Model ${found.name} aktif dengan kerangka pose terkalibrasi.`);
   };
 
   const runAiTryOn = useCallback(
@@ -324,7 +324,7 @@ export default function App() {
         const msg =
           err instanceof Error
             ? err.message
-            : "Gagal memuat AI Try-On. Pastikan API Key aktif.";
+            : "Render AI membutuhkan API Key berbayar. Mode Kerangka Pose 2D tetap aktif instan.";
         showToast(msg);
       } finally {
         setIsGeneratingAi(false);
@@ -377,8 +377,12 @@ export default function App() {
 
   const handleSelectMotif = (motif: BatikMotif) => {
     setSelectedMotif(motif);
-    // Ensure at least one garment is equipped so user sees the batik immediately
-    if (!equipped.top && !equipped.fullset && !equipped.outer && !equipped.bottom) {
+    if (
+      !equipped.top &&
+      !equipped.fullset &&
+      !equipped.outer &&
+      !equipped.bottom
+    ) {
       setEquipped((prev) => ({ ...prev, top: GARMENT_ITEMS.top[0] }));
     }
     if (autoFitOnMotifClick) {
@@ -421,19 +425,11 @@ export default function App() {
 
   const handleResetTransform = () => {
     if (subjectMode === "studio") {
-      setTransform(poseToTransform(activeStudioModel.defaultPose));
-    } else if (subjectMode === "upload" && detectedPose) {
-      setTransform(poseToTransform(detectedPose));
-    } else {
-      setTransform({
-        x: 0,
-        y: 16,
-        scale: 1,
-        width: 1,
-        rot: 0,
-        patternScale: 0.62,
-      });
+      setActiveSkeleton(activeStudioModel.defaultPose.skeleton);
+    } else if (subjectMode === "upload" && detectedPose?.skeleton) {
+      setActiveSkeleton(detectedPose.skeleton);
     }
+    setTransform(DEFAULT_SKELETAL_TRANSFORM);
   };
 
   return (
@@ -466,8 +462,8 @@ export default function App() {
               Studio Fitting Busana Batik Nusantara
             </h1>
             <p className="mt-1 text-sm text-[#A79F93]">
-              Unggah foto Anda, sesuaikan pose otomatis, lalu klik ragam motif
-              batik Nusantara untuk mencoba busana secara langsung.
+              Unggah foto Anda, petakan kerangka pose otomatis, lalu klik ragam
+              motif batik Nusantara untuk mencoba busana seketika.
             </p>
           </div>
           <div className="text-xs text-[#8E867B] whitespace-nowrap">
@@ -484,8 +480,14 @@ export default function App() {
               setAiResultUrl(null);
               if (m === "studio") {
                 setDetectedPose(activeStudioModel.defaultPose);
-                setTransform(poseToTransform(activeStudioModel.defaultPose));
-              } else if (m === "avatar") {
+                setActiveSkeleton(activeStudioModel.defaultPose.skeleton);
+                setTransform(DEFAULT_SKELETAL_TRANSFORM);
+              } else if (m === "upload") {
+                setTransform(DEFAULT_SKELETAL_TRANSFORM);
+                if (detectedPose?.skeleton) {
+                  setActiveSkeleton(detectedPose.skeleton);
+                }
+              } else {
                 setTransform({
                   x: 0,
                   y: 16,
@@ -555,6 +557,10 @@ export default function App() {
             avatarConfig={avatarConfig}
             poseJoints={poseJoints}
             faceAdjust={faceAdjust}
+            activeSkeleton={activeSkeleton}
+            onChangeSkeleton={setActiveSkeleton}
+            showSkeleton={showSkeleton}
+            onToggleShowSkeleton={setShowSkeleton}
             equipped={equipped}
             selectedMotif={selectedMotif}
             selectedColorMode={selectedColorMode}

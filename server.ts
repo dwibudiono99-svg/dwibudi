@@ -35,11 +35,20 @@ function stripDataUrlPrefix(input: string): { data: string; mimeType: string } {
   return { mimeType: "image/png", data: input };
 }
 
+const pointSchema = {
+  type: Type.OBJECT,
+  properties: {
+    x: { type: Type.NUMBER },
+    y: { type: Type.NUMBER },
+  },
+  required: ["x", "y"],
+};
+
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: "20mb" }));
 
-  // 1. Pose Detection Endpoint: analyzes uploaded photo to align Batik garment overlay automatically
+  // 1. Skeletal Pose Estimation Endpoint using gemini-3.8-flash
   app.post("/api/detect-pose", async (req, res) => {
     try {
       const { imageBase64, mimeType } = req.body as {
@@ -48,7 +57,9 @@ async function startServer() {
       };
 
       if (!imageBase64) {
-        return res.status(400).json({ error: "Data gambar model wajib dikirim." });
+        return res
+          .status(400)
+          .json({ error: "Data gambar model wajib dikirim." });
       }
 
       const ai = getAiClient();
@@ -66,16 +77,11 @@ async function startServer() {
             },
             {
               text: [
-                "Analyze the primary person in this portrait/full-body photo for virtual clothing fitting alignment.",
-                "Return normalized coordinates (0.0 to 1.0 relative to image width/height):",
-                "- torsoCenterX: horizontal center of the person's chest/torso (0.0 left, 1.0 right)",
-                "- torsoCenterY: vertical center of the upper-to-mid torso where a shirt/top sits (0.0 top, 1.0 bottom)",
-                "- shoulderWidthRatio: horizontal span between left and right shoulder edges divided by image width (typical range 0.18 to 0.55)",
-                "- torsoHeightRatio: vertical span from collarbone to waist/hip divided by image height (typical range 0.20 to 0.45)",
-                "- tiltDeg: shoulder line tilt angle in degrees (-25 to +25, positive if right shoulder is lower)",
-                "- bodyTurnDeg: estimated 3/4 yaw turn in degrees (-25 facing left to +25 facing right, 0 facing camera)",
-                "- poseLabel: short Indonesian description of the pose (e.g. 'Berdiri Tegak Frontal', 'Pose Santai 3/4', 'Tangan di Saku', 'Tangan di Pinggang')",
-                "- detectedSubjectType: 'pria', 'wanita', or 'berhijab'",
+                "Estimate the 2D skeletal pose landmarks of the primary person in this image for virtual garment fitting.",
+                "Use normalized coordinates (x from 0.0 left edge to 1.0 right edge; y from 0.0 top edge to 1.0 bottom edge).",
+                "Note: leftShoulder/leftElbow/leftWrist/leftHip refer to the person's anatomical left (which appears on the right side when facing the camera), and rightShoulder/rightElbow/rightWrist/rightHip refer to the person's anatomical right.",
+                "If lower legs are cropped out of frame, extrapolate reasonable hip/knee/ankle positions below the frame.",
+                "Also provide summary metrics: torsoCenterX, torsoCenterY, shoulderWidthRatio, torsoHeightRatio, tiltDeg (-25 to +25), bodyTurnDeg (-25 to +25), poseLabel (in Indonesian), detectedSubjectType ('pria', 'wanita', or 'berhijab').",
               ].join("\n"),
             },
           ],
@@ -93,6 +99,35 @@ async function startServer() {
               bodyTurnDeg: { type: Type.NUMBER },
               poseLabel: { type: Type.STRING },
               detectedSubjectType: { type: Type.STRING },
+              skeleton: {
+                type: Type.OBJECT,
+                properties: {
+                  neck: pointSchema,
+                  leftShoulder: pointSchema,
+                  rightShoulder: pointSchema,
+                  leftElbow: pointSchema,
+                  rightElbow: pointSchema,
+                  leftWrist: pointSchema,
+                  rightWrist: pointSchema,
+                  leftHip: pointSchema,
+                  rightHip: pointSchema,
+                  leftAnkle: pointSchema,
+                  rightAnkle: pointSchema,
+                },
+                required: [
+                  "neck",
+                  "leftShoulder",
+                  "rightShoulder",
+                  "leftElbow",
+                  "rightElbow",
+                  "leftWrist",
+                  "rightWrist",
+                  "leftHip",
+                  "rightHip",
+                  "leftAnkle",
+                  "rightAnkle",
+                ],
+              },
             },
             required: [
               "torsoCenterX",
@@ -103,6 +138,7 @@ async function startServer() {
               "bodyTurnDeg",
               "poseLabel",
               "detectedSubjectType",
+              "skeleton",
             ],
           },
         },
@@ -119,7 +155,7 @@ async function startServer() {
     }
   });
 
-  // 2. Photorealistic Batik Virtual Try-On Endpoint
+  // 2. Optional Photorealistic Batik Virtual Try-On Endpoint (requires paid image model key)
   app.post("/api/try-on", async (req, res) => {
     try {
       const {
@@ -250,7 +286,7 @@ STRICT ANATOMICAL, POSE & IDENTITY LOCK (CRITICAL):
 
       return res.status(502).json({
         error:
-          "Model tidak mengembalikan gambar hasil fitting. Coba ulangi atau ubah deskripsi busana.",
+          "Model tidak mengembalikan gambar hasil fitting. Gunakan mode Kerangka Pose 2D atau coba ulangi.",
       });
     } catch (err: unknown) {
       const message =
@@ -258,18 +294,21 @@ STRICT ANATOMICAL, POSE & IDENTITY LOCK (CRITICAL):
           ? err.message
           : "Terjadi kesalahan saat memproses AI Batik Try-On.";
       console.error("Try-on error:", err);
-      const status =
+      const isKeyOrQuota =
         message.includes("PERMISSION_DENIED") ||
-        message.includes("API_KEY_INVALID")
-          ? 403
-          : message.includes("RESOURCE_EXHAUSTED")
-          ? 429
-          : 500;
-      return res.status(status).json({ error: message });
+        message.includes("API_KEY_INVALID") ||
+        message.includes("RESOURCE_EXHAUSTED") ||
+        message.includes("billing") ||
+        message.includes("paid");
+
+      return res.status(isKeyOrQuota ? 403 : 500).json({
+        error: isKeyOrQuota
+          ? "Fitur render AI foto membutuhkan API Key berbayar. Mode Kerangka Pose Batik 2D tetap aktif secara instan dan gratis."
+          : message,
+      });
     }
   });
 
-  // Serve Vite middleware in development, static dist in production
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({

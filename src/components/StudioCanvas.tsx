@@ -13,13 +13,19 @@ import {
   Eye,
   EyeOff,
   Columns2,
+  Bone,
 } from "lucide-react";
 import type {
   BatikColorMode,
   BatikMotif,
   GarmentSlot,
+  PoseSkeleton,
 } from "../data/batikCatalog";
-import { drawBatikGarmentOnCanvas } from "../utils/batikPatternEngine";
+import {
+  drawBatikGarmentOnCanvas,
+  drawPoseSkeletonOverlay,
+  drawSkeletalBatikGarment,
+} from "../utils/batikPatternEngine";
 import {
   STUDIO_BACKDROPS,
   type AvatarConfig,
@@ -55,6 +61,10 @@ interface StudioCanvasProps {
   avatarConfig: AvatarConfig;
   poseJoints: PoseJoints;
   faceAdjust: FaceAdjust;
+  activeSkeleton: PoseSkeleton;
+  onChangeSkeleton: (next: PoseSkeleton) => void;
+  showSkeleton: boolean;
+  onToggleShowSkeleton: (val: boolean) => void;
   equipped: EquippedMap;
   selectedMotif: BatikMotif;
   selectedColorMode: BatikColorMode;
@@ -95,6 +105,10 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
       avatarConfig,
       poseJoints,
       faceAdjust,
+      activeSkeleton,
+      onChangeSkeleton,
+      showSkeleton,
+      onToggleShowSkeleton,
       equipped,
       selectedMotif,
       selectedColorMode,
@@ -127,6 +141,10 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
 
     const [compareMode, setCompareMode] = useState(false);
     const [compareRatio, setCompareRatio] = useState(0.5);
+    const [activeJointKey, setActiveJointKey] = useState<
+      keyof PoseSkeleton | null
+    >(null);
+    const draggingJointRef = useRef<keyof PoseSkeleton | null>(null);
     const draggingGarmentRef = useRef<{
       active: boolean;
       startX: number;
@@ -134,7 +152,6 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
     }>({ active: false, startX: 0, startY: 0 });
     const draggingCompareRef = useRef(false);
 
-    // Preload studio model photo
     useEffect(() => {
       const img = new Image();
       img.crossOrigin = "anonymous";
@@ -142,7 +159,6 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
       img.src = studioModelImageUrl;
     }, [studioModelImageUrl]);
 
-    // Preload uploaded photo
     useEffect(() => {
       if (!uploadedPhotoDataUrl) {
         setLoadedPhotoImg(null);
@@ -153,7 +169,6 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
       img.src = uploadedPhotoDataUrl;
     }, [uploadedPhotoDataUrl]);
 
-    // Preload AI generated result image
     useEffect(() => {
       if (!aiResultUrl) {
         setLoadedAiImg(null);
@@ -179,13 +194,11 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
         const fem = avatarConfig.gender === "female";
         const turnOffset = poseJoints.turn * 0.45;
 
-        // Floor shadow
         ctx.fillStyle = "rgba(0,0,0,0.28)";
         ctx.beginPath();
         ctx.ellipse(cx, 558, 84, 12, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Back hair
         if (avatarConfig.hair === "long") {
           ctx.fillStyle = "#1C1917";
           ctx.beginPath();
@@ -193,7 +206,6 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
           ctx.fill();
         }
 
-        // Neck & torso
         ctx.fillStyle = shadeHexSimple(skin, -15);
         ctx.beginPath();
         ctx.roundRect(cx - 13, 144, 26, 36, 8);
@@ -211,7 +223,6 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
         ctx.closePath();
         ctx.fill();
 
-        // Arms
         ctx.lineCap = "round";
         ctx.lineWidth = fem ? 16 : 20;
         ctx.strokeStyle = skin;
@@ -258,7 +269,6 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
         ctx.lineTo(handRX, handRY);
         ctx.stroke();
 
-        // Legs
         ctx.lineWidth = fem ? 20 : 23;
         ctx.strokeStyle = skin;
         const spreadRad = (poseJoints.legSpread * Math.PI) / 180;
@@ -289,7 +299,6 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
           ctx.stroke();
         }
 
-        // Head & face
         ctx.fillStyle = skin;
         ctx.beginPath();
         ctx.ellipse(cx + turnOffset * 0.15, 117, 31, 37, 0, 0, Math.PI * 2);
@@ -313,7 +322,6 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
         }
         ctx.stroke();
 
-        // Hair / Hijab
         if (avatarConfig.hair === "hijab") {
           ctx.fillStyle = "#3F3A34";
           ctx.beginPath();
@@ -437,7 +445,6 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
 
       ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-      // If AI Try-On image is ready, show it (with optional split comparison)
       if (loadedAiImg) {
         const asp = loadedAiImg.width / loadedAiImg.height;
         let dh = CANVAS_H;
@@ -472,44 +479,79 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
         return;
       }
 
-      // Draw clean subject
       drawCleanSubject(ctx);
 
-      // Draw pose-aligned Batik garment overlay
-      if (!showOverlay2D) return;
-      if (subjectMode === "upload" && !loadedPhotoImg) return;
+      const canDrawPhotoOverlay =
+        subjectMode !== "upload" || Boolean(loadedPhotoImg);
 
-      const bodySkewRad = (poseJoints.turn * 0.32 * Math.PI) / 180;
-      ctx.save();
-      ctx.translate(CANVAS_W / 2 + transform.x, CANVAS_H / 2 + transform.y);
-      ctx.rotate(((transform.rot + poseJoints.turn * 0.18) * Math.PI) / 180);
-      ctx.transform(1, 0, Math.tan(bodySkewRad) * 0.25, 1, 0, 0);
-      ctx.scale(
-        0.74 * transform.scale * transform.width,
-        0.74 * transform.scale
-      );
+      if (showOverlay2D && canDrawPhotoOverlay) {
+        const order: GarmentSlot[] = equipped.fullset
+          ? ["fullset", "accessory"]
+          : ["bottom", "top", "outer", "accessory"];
 
-      // Slightly blend overlay naturally onto uploaded/studio photo
-      ctx.globalAlpha = subjectMode === "avatar" ? 1 : 0.9;
-
-      const order: GarmentSlot[] = equipped.fullset
-        ? ["fullset", "accessory"]
-        : ["bottom", "top", "outer", "accessory"];
-
-      for (const slot of order) {
-        const item = equipped[slot];
-        if (item) {
-          drawBatikGarmentOnCanvas(
-            ctx,
-            item,
-            selectedMotif,
-            selectedColorMode,
-            transform.patternScale
+        if (subjectMode === "avatar") {
+          const bodySkewRad = (poseJoints.turn * 0.32 * Math.PI) / 180;
+          ctx.save();
+          ctx.translate(CANVAS_W / 2 + transform.x, CANVAS_H / 2 + transform.y);
+          ctx.rotate(((transform.rot + poseJoints.turn * 0.18) * Math.PI) / 180);
+          ctx.transform(1, 0, Math.tan(bodySkewRad) * 0.25, 1, 0, 0);
+          ctx.scale(
+            0.74 * transform.scale * transform.width,
+            0.74 * transform.scale
           );
+          for (const slot of order) {
+            const item = equipped[slot];
+            if (item) {
+              drawBatikGarmentOnCanvas(
+                ctx,
+                item,
+                selectedMotif,
+                selectedColorMode,
+                transform.patternScale
+              );
+            }
+          }
+          ctx.restore();
+        } else {
+          // Skeletal Pose-Mapped Batik Garment Overlay
+          ctx.save();
+          ctx.globalAlpha = 0.92;
+          for (const slot of order) {
+            const item = equipped[slot];
+            if (item) {
+              drawSkeletalBatikGarment(
+                ctx,
+                CANVAS_W,
+                CANVAS_H,
+                activeSkeleton,
+                item,
+                selectedMotif,
+                selectedColorMode,
+                {
+                  offsetX: transform.x,
+                  offsetY: transform.y,
+                  widthScale: transform.width,
+                  lengthScale: transform.scale,
+                  patternScale: transform.patternScale,
+                  rotDeg: transform.rot,
+                }
+              );
+            }
+          }
+          ctx.restore();
         }
       }
 
-      ctx.restore();
+      // Draw interactive skeletal landmarks if enabled
+      if (showSkeleton && subjectMode !== "avatar" && canDrawPhotoOverlay) {
+        drawPoseSkeletonOverlay(
+          ctx,
+          CANVAS_W,
+          CANVAS_H,
+          activeSkeleton,
+          activeJointKey
+        );
+      }
     }, [
       loadedAiImg,
       compareMode,
@@ -523,6 +565,9 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
       equipped,
       selectedMotif,
       selectedColorMode,
+      activeSkeleton,
+      showSkeleton,
+      activeJointKey,
     ]);
 
     useEffect(() => {
@@ -564,8 +609,25 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
     const handleCanvasPointerDown = (
       e: React.MouseEvent<HTMLCanvasElement>
     ) => {
-      if (loadedAiImg || !showOverlay2D) return;
+      if (loadedAiImg) return;
       const pos = getCanvasPos(e.clientX, e.clientY);
+
+      // Check if clicking near a skeletal landmark joint
+      if (showSkeleton && subjectMode !== "avatar") {
+        const keys = Object.keys(activeSkeleton) as Array<keyof PoseSkeleton>;
+        for (const key of keys) {
+          const pt = activeSkeleton[key];
+          const jx = pt.x * CANVAS_W;
+          const jy = pt.y * CANVAS_H;
+          if (Math.hypot(pos.x - jx, pos.y - jy) <= 14) {
+            draggingJointRef.current = key;
+            setActiveJointKey(key);
+            return;
+          }
+        }
+      }
+
+      if (!showOverlay2D) return;
       draggingGarmentRef.current = {
         active: true,
         startX: pos.x - transform.x,
@@ -576,8 +638,20 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
     const handleCanvasPointerMove = (
       e: React.MouseEvent<HTMLCanvasElement>
     ) => {
-      if (!draggingGarmentRef.current.active) return;
       const pos = getCanvasPos(e.clientX, e.clientY);
+
+      if (draggingJointRef.current) {
+        const key = draggingJointRef.current;
+        const nx = Math.max(0.02, Math.min(0.98, pos.x / CANVAS_W));
+        const ny = Math.max(0.02, Math.min(0.98, pos.y / CANVAS_H));
+        onChangeSkeleton({
+          ...activeSkeleton,
+          [key]: { x: nx, y: ny },
+        });
+        return;
+      }
+
+      if (!draggingGarmentRef.current.active) return;
       onChangeTransform({
         ...transform,
         x: Math.round(pos.x - draggingGarmentRef.current.startX),
@@ -586,7 +660,9 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
     };
 
     const handleCanvasPointerUp = () => {
+      draggingJointRef.current = null;
       draggingGarmentRef.current.active = false;
+      setActiveJointKey(null);
     };
 
     const updateCompareFromClientX = (clientX: number) => {
@@ -607,14 +683,14 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
             <h2 className="text-sm font-semibold tracking-tight text-[#F4F1EA]">
               {loadedAiImg
                 ? "Hasil Fitting Batik Presisi Pose"
-                : "Ruang Fitting Studio"}
+                : "Ruang Fitting Kerangka Pose"}
             </h2>
             <p className="text-[11px] text-[#8E867B]">
               {selectedMotif.name} · {selectedMotif.origin}
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {loadedAiImg ? (
               <>
                 <button
@@ -630,11 +706,25 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
                   onClick={onClearAiResult}
                   className="rounded-md border border-white/10 bg-[#24211E] px-2.5 py-1 text-[11px] font-medium text-[#D6CFC5] hover:text-white cursor-pointer whitespace-nowrap"
                 >
-                  Edit Overlay
+                  Kembali ke Kerangka
                 </button>
               </>
             ) : (
               <>
+                {subjectMode !== "avatar" && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleShowSkeleton(!showSkeleton)}
+                    className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                      showSkeleton
+                        ? "border-[#D99B26] bg-[#D99B26]/15 text-[#F0C265]"
+                        : "border-white/10 bg-[#24211E] text-[#D6CFC5] hover:text-white"
+                    }`}
+                  >
+                    <Bone className="h-3 w-3" />
+                    <span>Kerangka Pose</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => onToggleShowOverlay2D(!showOverlay2D)}
@@ -645,7 +735,7 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
                   ) : (
                     <EyeOff className="h-3 w-3" />
                   )}
-                  <span>{showOverlay2D ? "Overlay 2D" : "Foto Bersih"}</span>
+                  <span>{showOverlay2D ? "Busana Aktif" : "Foto Asli"}</span>
                 </button>
                 <button
                   type="button"
@@ -742,18 +832,107 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
 
           {/* Subtle Hint */}
           {!loadedAiImg && !isGeneratingAi && (
-            <div className="pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1 text-[10px] text-[#D6CFC5] whitespace-nowrap">
-              Seret busana di kanvas atau klik motif batik di kanan
+            <div className="pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 rounded-full bg-black/75 px-3 py-1 text-[10px] text-[#D6CFC5] whitespace-nowrap">
+              {showSkeleton
+                ? "Seret titik sendi kuning untuk menyelaraskan bahu & lengan"
+                : "Seret busana di kanvas atau klik motif batik di kanan"}
             </div>
           )}
         </div>
 
-        {/* AI Fitting Action & Photographer Controls */}
+        {/* Fine-Tuning Pose Overlay Sliders */}
+        <div className="grid w-full grid-cols-2 gap-3 rounded-lg border border-white/10 bg-[#12110F] p-3 sm:grid-cols-4">
+          <div>
+            <div className="mb-1 flex justify-between text-[10px] text-[#A79F93]">
+              <span>Panjang</span>
+              <span className="font-mono-num">{transform.scale.toFixed(2)}x</span>
+            </div>
+            <input
+              type="range"
+              min={70}
+              max={145}
+              value={Math.round(transform.scale * 100)}
+              onChange={(e) =>
+                onChangeTransform({
+                  ...transform,
+                  scale: Number(e.target.value) / 100,
+                })
+              }
+              className="studio-range"
+            />
+          </div>
+
+          <div>
+            <div className="mb-1 flex justify-between text-[10px] text-[#A79F93]">
+              <span>Lebar Bahu</span>
+              <span className="font-mono-num">
+                {Math.round(transform.width * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={75}
+              max={140}
+              value={Math.round(transform.width * 100)}
+              onChange={(e) =>
+                onChangeTransform({
+                  ...transform,
+                  width: Number(e.target.value) / 100,
+                })
+              }
+              className="studio-range"
+            />
+          </div>
+
+          <div>
+            <div className="mb-1 flex justify-between text-[10px] text-[#A79F93]">
+              <span>Skala Motif</span>
+              <span className="font-mono-num">
+                {Math.round(transform.patternScale * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={35}
+              max={120}
+              value={Math.round(transform.patternScale * 100)}
+              onChange={(e) =>
+                onChangeTransform({
+                  ...transform,
+                  patternScale: Number(e.target.value) / 100,
+                })
+              }
+              className="studio-range"
+            />
+          </div>
+
+          <div>
+            <div className="mb-1 flex justify-between text-[10px] text-[#A79F93]">
+              <span>Rotasi</span>
+              <span className="font-mono-num">{transform.rot}°</span>
+            </div>
+            <input
+              type="range"
+              min={-25}
+              max={25}
+              value={transform.rot}
+              onChange={(e) =>
+                onChangeTransform({
+                  ...transform,
+                  rot: Number(e.target.value),
+                })
+              }
+              className="studio-range"
+            />
+          </div>
+        </div>
+
+        {/* Optional Photorealistic AI Fitting Controls */}
         <div className="flex w-full flex-col gap-2.5 rounded-lg border border-white/10 bg-[#12110F] p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#F0C265]">
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span>Penjahit &amp; Fotografer AI</span>
+              <span>Render Fotorealistis (Opsional)</span>
             </span>
             <div className="flex items-center gap-2">
               <label className="inline-flex items-center gap-1.5 text-[11px] text-[#A79F93] cursor-pointer">
@@ -804,96 +983,9 @@ export const StudioCanvas = forwardRef<StudioCanvasHandle, StudioCanvasProps>(
             <span>
               {isGeneratingAi
                 ? "Memproses Fitting AI..."
-                : "Pasang Batik Presisi AI (Sesuai Pose Foto)"}
+                : "Render Fotorealistis AI (Sesuai Pose)"}
             </span>
           </button>
-        </div>
-
-        {/* Fine-Tuning Pose Overlay Sliders */}
-        <div className="grid w-full grid-cols-2 gap-3 rounded-lg border border-white/10 bg-[#12110F] p-3 sm:grid-cols-4">
-          <div>
-            <div className="mb-1 flex justify-between text-[10px] text-[#A79F93]">
-              <span>Ukuran</span>
-              <span className="font-mono-num">{transform.scale.toFixed(2)}x</span>
-            </div>
-            <input
-              type="range"
-              min={50}
-              max={165}
-              value={Math.round(transform.scale * 100)}
-              onChange={(e) =>
-                onChangeTransform({
-                  ...transform,
-                  scale: Number(e.target.value) / 100,
-                })
-              }
-              className="studio-range"
-            />
-          </div>
-
-          <div>
-            <div className="mb-1 flex justify-between text-[10px] text-[#A79F93]">
-              <span>Kemiringan</span>
-              <span className="font-mono-num">{transform.rot}°</span>
-            </div>
-            <input
-              type="range"
-              min={-30}
-              max={30}
-              value={transform.rot}
-              onChange={(e) =>
-                onChangeTransform({
-                  ...transform,
-                  rot: Number(e.target.value),
-                })
-              }
-              className="studio-range"
-            />
-          </div>
-
-          <div>
-            <div className="mb-1 flex justify-between text-[10px] text-[#A79F93]">
-              <span>Lebar Bahu</span>
-              <span className="font-mono-num">
-                {Math.round(transform.width * 100)}%
-              </span>
-            </div>
-            <input
-              type="range"
-              min={70}
-              max={145}
-              value={Math.round(transform.width * 100)}
-              onChange={(e) =>
-                onChangeTransform({
-                  ...transform,
-                  width: Number(e.target.value) / 100,
-                })
-              }
-              className="studio-range"
-            />
-          </div>
-
-          <div>
-            <div className="mb-1 flex justify-between text-[10px] text-[#A79F93]">
-              <span>Skala Motif</span>
-              <span className="font-mono-num">
-                {Math.round(transform.patternScale * 100)}%
-              </span>
-            </div>
-            <input
-              type="range"
-              min={35}
-              max={120}
-              value={Math.round(transform.patternScale * 100)}
-              onChange={(e) =>
-                onChangeTransform({
-                  ...transform,
-                  patternScale: Number(e.target.value) / 100,
-                })
-              }
-              className="studio-range"
-            />
-          </div>
         </div>
       </section>
     );
